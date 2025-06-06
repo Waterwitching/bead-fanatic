@@ -1,0 +1,283 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import { getCollection } from 'astro:content';
+
+const posts = await getCollection('posts', ({ data }) => data.published);
+const sortedPosts = posts.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+
+const featuredPosts = sortedPosts.filter(post => post.data.featured);
+const recentPosts = sortedPosts.slice(0, 6);
+
+// Group by category
+const categoryGroups = {
+  news: posts.filter(p => p.data.category === 'news'),
+  tips: posts.filter(p => p.data.category === 'tips'),
+  inspiration: posts.filter(p => p.data.category === 'inspiration'),
+  community: posts.filter(p => p.data.category === 'community')
+};
+---
+
+<Layout 
+  title="Bead Fanatic Blog - Tips, Inspiration & Community Stories"
+  description="Stay updated with the latest beading trends, tutorials, supplier news, and community stories. Your go-to source for all things beads and jewellery making."
+>
+  <div class="min-h-screen bg-gradient-to-br from-accent/10 to-secondary/10">
+    <!-- Header -->
+    <section class="py-20">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center">
+          <div class="inline-block mb-6">
+            <div class="flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl">
+              <span class="text-white text-2xl">📰</span>
+            </div>
+          </div>
+          
+          <h1 class="text-4xl sm:text-5xl font-black text-dark mb-4">
+            The Bead Fanatic Blog
+          </h1>
+          
+          <p class="text-xl text-text-light max-w-3xl mx-auto mb-8">
+            Your source for beading inspiration, expert tips, industry news, 
+            and stories from our passionate community of makers.
+          </p>
+          
+          <!-- Quick Stats -->
+          <div class="flex flex-wrap justify-center gap-8 text-center">
+            <div>
+              <div class="text-3xl font-black text-primary">{posts.length}</div>
+              <div class="text-sm text-text-light font-semibold">Articles</div>
+            </div>
+            <div>
+              <div class="text-3xl font-black text-secondary">{categoryGroups.tips.length}</div>
+              <div class="text-sm text-text-light font-semibold">Tips & Guides</div>
+            </div>
+            <div>
+              <div class="text-3xl font-black text-accent">{featuredPosts.length}</div>
+              <div class="text-sm text-text-light font-semibold">Featured</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Featured Posts -->
+    {featuredPosts.length > 0 && (
+      <section class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="text-center mb-16">
+            <h2 class="text-3xl sm:text-4xl font-black text-dark mb-4">
+              Featured Articles
+            </h2>
+            <p class="text-lg text-text-light max-w-2xl mx-auto">
+              Our most popular and informative posts, handpicked for the community.
+            </p>
+          </div>
+          
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {featuredPosts.slice(0, 4).map((post, index) => (
+              <article class={`card hover:scale-105 transition-transform ${
+                index === 0 ? 'lg:col-span-2' : ''
+              }`}>
+                {post.data.heroImage && (
+                  <div class={`aspect-video bg-gradient-to-br from-secondary to-accent rounded-xl mb-6 flex items-center justify-center ${
+                    index === 0 ? 'aspect-[21/9]' : ''
+                  }`}>
+                    <span class="text-4xl">📰</span>
+                  </div>
+                )}
+                
+                <div class="flex items-center justify-between mb-4">
+                  <span class={`tag text-xs ${
+                    post.data.category === 'news' ? 'bg-blue-100 text-blue-800' :
+                    post.data.category === 'tips' ? 'bg-green-100 text-green-800' :
+                    post.data.category === 'inspiration' ? 'bg-purple-100 text-purple-800' :
+                    'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {post.data.category}
+                  </span>
+                  <time class="text-sm text-text-light">
+                    {post.data.pubDate.toLocaleDateString('en-GB', { 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })}
+                  </time>
+                </div>
+                
+                <h3 class={`font-bold text-dark mb-4 ${
+                  index === 0 ? 'text-2xl lg:text-3xl' : 'text-xl'
+                }`}>
+                  <a href={`/blog/${post.slug}`} class="hover:text-primary transition-colors">
+                    {post.data.title}
+                  </a>
+                </h3>
+                
+                <p class={`text-text-light mb-6 ${
+                  index === 0 ? 'text-lg' : ''
+                }`}>
+                  {post.data.description}
+                </p>
+                
+                <div class="flex flex-wrap gap-2 mb-6">
+                  {post.data.tags.slice(0, 4).map(tag => (
+                    <span class="tag text-xs">{tag}</span>
+                  ))}
+                </div>
+                
+                <a href={`/blog/${post.slug}`} class="btn btn-primary btn-sm">
+                  Read More
+                </a>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+    
+    <!-- Categories -->
+    <section class="py-20">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16">
+          <h2 class="text-3xl sm:text-4xl font-black text-dark mb-4">
+            Browse by Category
+          </h2>
+          <p class="text-lg text-text-light max-w-2xl mx-auto">
+            Find exactly what you're looking for with our organised content categories.
+          </p>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          {[
+            { key: 'news', name: 'News & Updates', icon: '📰', description: 'Latest industry news and announcements', count: categoryGroups.news.length },
+            { key: 'tips', name: 'Tips & Techniques', icon: '💡', description: 'Expert advice and how-to guides', count: categoryGroups.tips.length },
+            { key: 'inspiration', name: 'Inspiration', icon: '✨', description: 'Creative ideas and artistic showcases', count: categoryGroups.inspiration.length },
+            { key: 'community', name: 'Community Stories', icon: '👥', description: 'Features and stories from our members', count: categoryGroups.community.length }
+          ].map((category) => (
+            <div class="card text-center hover:scale-105 transition-transform">
+              <div class="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl mx-auto mb-4 flex items-center justify-center">
+                <span class="text-white text-2xl">{category.icon}</span>
+              </div>
+              
+              <h3 class="text-xl font-bold text-dark mb-2">
+                <a href={`/blog/${category.key}`} class="hover:text-primary transition-colors">
+                  {category.name}
+                </a>
+              </h3>
+              
+              <p class="text-text-light text-sm mb-4">
+                {category.description}
+              </p>
+              
+              <div class="text-sm text-text-light mb-6">
+                {category.count} articles
+              </div>
+              
+              <a href={`/blog/${category.key}`} class="btn btn-outline btn-sm w-full">
+                Browse {category.name}
+              </a>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+    
+    <!-- Recent Posts -->
+    <section class="py-20 bg-white">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16">
+          <h2 class="text-3xl sm:text-4xl font-black text-dark mb-4">
+            Latest Articles
+          </h2>
+          <p class="text-lg text-text-light max-w-2xl mx-auto">
+            Stay up to date with our newest content and community updates.
+          </p>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {recentPosts.map((post) => (
+            <article class="card hover:scale-105 transition-transform">
+              <div class="aspect-video bg-gradient-to-br from-secondary to-accent rounded-xl mb-4 flex items-center justify-center">
+                <span class="text-4xl">📰</span>
+              </div>
+              
+              <div class="flex items-center justify-between mb-4">
+                <span class={`tag text-xs ${
+                  post.data.category === 'news' ? 'bg-blue-100 text-blue-800' :
+                  post.data.category === 'tips' ? 'bg-green-100 text-green-800' :
+                  post.data.category === 'inspiration' ? 'bg-purple-100 text-purple-800' :
+                  'bg-yellow-100 text-yellow-800'
+                }`}>
+                  {post.data.category}
+                </span>
+                <time class="text-sm text-text-light">
+                  {post.data.pubDate.toLocaleDateString('en-GB', { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric' 
+                  })}
+                </time>
+              </div>
+              
+              <h3 class="text-xl font-bold text-dark mb-4">
+                <a href={`/blog/${post.slug}`} class="hover:text-primary transition-colors">
+                  {post.data.title}
+                </a>
+              </h3>
+              
+              <p class="text-text-light mb-4 line-clamp-3">
+                {post.data.description}
+              </p>
+              
+              <div class="flex flex-wrap gap-2 mb-6">
+                {post.data.tags.slice(0, 3).map(tag => (
+                  <span class="tag text-xs">{tag}</span>
+                ))}
+              </div>
+              
+              <a href={`/blog/${post.slug}`} class="btn btn-primary btn-sm w-full">
+                Read Article
+              </a>
+            </article>
+          ))}
+        </div>
+        
+        {posts.length > 6 && (
+          <div class="text-center mt-12">
+            <a href="/blog/all" class="btn btn-primary text-lg px-8 py-4">
+              View All Articles
+            </a>
+          </div>
+        )}
+      </div>
+    </section>
+    
+    <!-- Newsletter Signup -->
+    <section class="py-20 bg-gradient-to-br from-primary to-secondary">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h2 class="text-3xl sm:text-4xl font-black text-white mb-6">
+          Never Miss an Update
+        </h2>
+        <p class="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
+          Subscribe to our newsletter for the latest tutorials, supplier news, 
+          and exclusive content delivered to your inbox.
+        </p>
+        
+        <form class="max-w-md mx-auto flex gap-4">
+          <input 
+            type="email" 
+            placeholder="Enter your email address"
+            class="flex-1 px-4 py-3 rounded-xl border-none outline-none text-dark"
+            required
+          >
+          <button type="submit" class="btn bg-white text-primary hover:bg-accent transition-colors px-6">
+            Subscribe
+          </button>
+        </form>
+        
+        <p class="text-white/70 text-sm mt-4">
+          We respect your privacy. Unsubscribe at any time.
+        </p>
+      </div>
+    </section>
+  </div>
+</Layout>
