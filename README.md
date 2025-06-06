@@ -2,6 +2,49 @@
 
 A comprehensive hub for bead enthusiasts, jewellery makers, and craft lovers. Features bead identification, tutorials, and supplier directory.
 
+## 🚀 Quick Setup
+
+### 1. Set Up Cloudflare Pages
+
+**Option A: Using Cloudflare Dashboard (Recommended)**
+1. Go to [Cloudflare Dashboard](https://dash.cloudflare.com)
+2. Navigate to **Workers & Pages** → **Create application** → **Pages** → **Connect to Git**
+3. Connect GitHub and select this repository
+4. Build settings:
+   - Framework: `Astro`
+   - Build command: `npm run build` 
+   - Output directory: `dist`
+5. Click **Save and Deploy**
+
+**Option B: Using Local CLI**
+```bash
+chmod +x setup-cloudflare.sh
+./setup-cloudflare.sh
+```
+
+### 2. Set Up GitHub Secrets
+
+Add these secrets to your GitHub repository:
+
+1. Go to your repo → **Settings** → **Secrets and variables** → **Actions**
+2. Add these secrets:
+
+- `CLOUDFLARE_API_TOKEN`: 
+  - Go to [Cloudflare API Tokens](https://dash.cloudflare.com/profile/api-tokens)
+  - Create token → **Custom token**
+  - Permissions: `Account:Cloudflare Pages:Edit`
+  - Copy the token
+
+- `CLOUDFLARE_ACCOUNT_ID`:
+  - Found in Cloudflare Dashboard → right sidebar under **Account ID**
+
+### 3. Connect Custom Domain (Optional)
+
+1. In Cloudflare Dashboard → **Workers & Pages** → **bead-fanatic**
+2. Go to **Custom domains** → **Set up a custom domain**
+3. Add `beadfanatic.co.uk`
+4. Follow DNS instructions
+
 ## Features
 
 - 🔍 **AI-Powered Bead Identification**: Upload photos to identify bead types
@@ -81,11 +124,11 @@ public/
 └── favicon.svg         # Site icon
 ```
 
-### Content Management
+## Content Management
 
 Content is managed through markdown files with frontmatter:
 
-#### Adding Bead Types
+### Adding Bead Types
 
 Create a new file in `src/content/bead-types/` with the required schema:
 
@@ -102,13 +145,21 @@ colours: ["red", "blue"]
 Your detailed content here...
 ```
 
-#### Adding Tutorials
+### Adding Tutorials
 
 Create a new file in `src/content/tutorials/` following the tutorial schema.
 
-#### Adding Suppliers
+### Adding Suppliers
 
 Create a new file in `src/content/suppliers/` with supplier information.
+
+## AI Bead Identification
+
+To enable AI bead identification:
+
+1. Get a free [HuggingFace API token](https://huggingface.co/settings/tokens)
+2. Add `HF_API_TOKEN` to your GitHub secrets
+3. The worker will automatically use it for image analysis
 
 ## Deployment
 
