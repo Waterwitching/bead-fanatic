@@ -1,0 +1,263 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import { getCollection } from 'astro:content';
+
+const tutorials = await getCollection('tutorials', ({ data }) => data.published);
+
+// Group by difficulty
+const difficultyGroups = {
+  beginner: tutorials.filter(t => t.data.difficulty === 'beginner'),
+  intermediate: tutorials.filter(t => t.data.difficulty === 'intermediate'),
+  advanced: tutorials.filter(t => t.data.difficulty === 'advanced')
+};
+
+// Group by category
+const categoryGroups = {
+  necklaces: tutorials.filter(t => t.data.category === 'necklaces'),
+  bracelets: tutorials.filter(t => t.data.category === 'bracelets'),
+  earrings: tutorials.filter(t => t.data.category === 'earrings'),
+  rings: tutorials.filter(t => t.data.category === 'rings'),
+  brooches: tutorials.filter(t => t.data.category === 'brooches'),
+  general: tutorials.filter(t => t.data.category === 'general')
+};
+
+const featuredTutorials = tutorials.filter(t => t.data.featured);
+---
+
+<Layout 
+  title="Jewellery Making Tutorials - Learn Beading Techniques | Bead Fanatic"
+  description="Master the art of jewellery making with our comprehensive tutorials. From beginner to advanced techniques, learn to create stunning beaded jewellery."
+>
+  <div class="min-h-screen bg-gradient-to-br from-accent/10 to-secondary/10">
+    <!-- Header -->
+    <section class="py-20">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center">
+          <div class="inline-block mb-6">
+            <div class="flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl">
+              <span class="text-white text-2xl">🎓</span>
+            </div>
+          </div>
+          
+          <h1 class="text-4xl sm:text-5xl font-black text-dark mb-4">
+            Jewellery Making Tutorials
+          </h1>
+          
+          <p class="text-xl text-text-light max-w-3xl mx-auto mb-8">
+            Learn to create beautiful beaded jewellery with our step-by-step tutorials. 
+            From basic stringing to advanced techniques, we'll guide you through every step.
+          </p>
+          
+          <!-- Quick Stats -->
+          <div class="flex flex-wrap justify-center gap-8 text-center">
+            <div>
+              <div class="text-3xl font-black text-primary">{tutorials.length}</div>
+              <div class="text-sm text-text-light font-semibold">Tutorials</div>
+            </div>
+            <div>
+              <div class="text-3xl font-black text-secondary">{difficultyGroups.beginner.length}</div>
+              <div class="text-sm text-text-light font-semibold">For Beginners</div>
+            </div>
+            <div>
+              <div class="text-3xl font-black text-accent">{featuredTutorials.length}</div>
+              <div class="text-sm text-text-light font-semibold">Featured</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Featured Tutorials -->
+    {featuredTutorials.length > 0 && (
+      <section class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="text-center mb-16">
+            <h2 class="text-3xl sm:text-4xl font-black text-dark mb-4">
+              Featured Tutorials
+            </h2>
+            <p class="text-lg text-text-light max-w-2xl mx-auto">
+              Our most popular and highly-rated tutorials, perfect for getting started.
+            </p>
+          </div>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {featuredTutorials.slice(0, 6).map((tutorial) => (
+              <article class="card hover:scale-105 transition-transform">
+                <div class="aspect-video bg-gradient-to-br from-secondary to-accent rounded-xl mb-4 flex items-center justify-center">
+                  <span class="text-4xl">📚</span>
+                </div>
+                
+                <div class="flex items-start justify-between mb-2">
+                  <h3 class="text-xl font-bold text-dark">
+                    <a href={`/tutorials/${tutorial.slug}`} class="hover:text-primary transition-colors">
+                      {tutorial.data.title}
+                    </a>
+                  </h3>
+                  <span class={`tag text-xs ${
+                    tutorial.data.difficulty === 'beginner' ? 'bg-green-100 text-green-800' :
+                    tutorial.data.difficulty === 'intermediate' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {tutorial.data.difficulty}
+                  </span>
+                </div>
+                
+                <p class="text-text-light mb-4 line-clamp-3">
+                  {tutorial.data.description}
+                </p>
+                
+                <div class="flex items-center justify-between text-xs text-text-light mb-4">
+                  <span>🕰️ {tutorial.data.timeRequired}</span>
+                  <span class="capitalize">💰 {tutorial.data.supplyCost.replace('-', ' ')}</span>
+                </div>
+                
+                <div class="flex flex-wrap gap-2 mb-4">
+                  {tutorial.data.tags.slice(0, 3).map(tag => (
+                    <span class="tag text-xs">{tag}</span>
+                  ))}
+                </div>
+                
+                <a href={`/tutorials/${tutorial.slug}`} class="btn btn-primary btn-sm w-full">
+                  Start Tutorial
+                </a>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+    
+    <!-- Difficulty Levels -->
+    <section class="py-20">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16">
+          <h2 class="text-3xl sm:text-4xl font-black text-dark mb-4">
+            Choose Your Level
+          </h2>
+          <p class="text-lg text-text-light max-w-2xl mx-auto">
+            Whether you're just starting out or looking to master advanced techniques, 
+            we have tutorials for every skill level.
+          </p>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <!-- Beginner -->
+          <div class="card text-center hover:scale-105 transition-transform">
+            <div class="w-16 h-16 bg-gradient-to-br from-green-400 to-green-600 rounded-2xl mx-auto mb-4 flex items-center justify-center">
+              <span class="text-white text-2xl">🌱</span>
+            </div>
+            <h3 class="text-2xl font-bold text-dark mb-2">Beginner</h3>
+            <p class="text-text-light mb-4">
+              Perfect for those new to beading. Learn basic techniques and create simple, 
+              beautiful pieces.
+            </p>
+            <div class="text-sm text-text-light mb-6">
+              <div>🕰️ 30 minutes - 2 hours</div>
+              <div>💰 Under £25</div>
+              <div>📚 {difficultyGroups.beginner.length} tutorials</div>
+            </div>
+            <a href="/tutorials/beginner" class="btn bg-green-500 text-white hover:bg-green-600 btn-sm w-full">
+              Start Learning
+            </a>
+          </div>
+          
+          <!-- Intermediate -->
+          <div class="card text-center hover:scale-105 transition-transform">
+            <div class="w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl mx-auto mb-4 flex items-center justify-center">
+              <span class="text-white text-2xl">🌿</span>
+            </div>
+            <h3 class="text-2xl font-bold text-dark mb-2">Intermediate</h3>
+            <p class="text-text-light mb-4">
+              Build on your skills with more complex patterns and techniques. 
+              Perfect for expanding your repertoire.
+            </p>
+            <div class="text-sm text-text-light mb-6">
+              <div>🕰️ 2-4 hours</div>
+              <div>💰 £25-50</div>
+              <div>📚 {difficultyGroups.intermediate.length} tutorials</div>
+            </div>
+            <a href="/tutorials/intermediate" class="btn bg-yellow-500 text-white hover:bg-yellow-600 btn-sm w-full">
+              Level Up
+            </a>
+          </div>
+          
+          <!-- Advanced -->
+          <div class="card text-center hover:scale-105 transition-transform">
+            <div class="w-16 h-16 bg-gradient-to-br from-red-500 to-purple-600 rounded-2xl mx-auto mb-4 flex items-center justify-center">
+              <span class="text-white text-2xl">🌲</span>
+            </div>
+            <h3 class="text-2xl font-bold text-dark mb-2">Advanced</h3>
+            <p class="text-text-light mb-4">
+              Master complex techniques and create intricate, professional-quality pieces. 
+              For experienced makers.
+            </p>
+            <div class="text-sm text-text-light mb-6">
+              <div>🕰️ 4+ hours</div>
+              <div>💰 £50+</div>
+              <div>📚 {difficultyGroups.advanced.length} tutorials</div>
+            </div>
+            <a href="/tutorials/advanced" class="btn bg-red-500 text-white hover:bg-red-600 btn-sm w-full">
+              Master Skills
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Categories -->
+    <section class="py-20 bg-white">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16">
+          <h2 class="text-3xl sm:text-4xl font-black text-dark mb-4">
+            What Would You Like to Make?
+          </h2>
+          <p class="text-lg text-text-light max-w-2xl mx-auto">
+            Browse tutorials by the type of jewellery you want to create.
+          </p>
+        </div>
+        
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+          {[
+            { key: 'necklaces', name: 'Necklaces', icon: '👍', count: categoryGroups.necklaces.length },
+            { key: 'bracelets', name: 'Bracelets', icon: '💿', count: categoryGroups.bracelets.length },
+            { key: 'earrings', name: 'Earrings', icon: '💂', count: categoryGroups.earrings.length },
+            { key: 'rings', name: 'Rings', icon: '💍', count: categoryGroups.rings.length },
+            { key: 'brooches', name: 'Brooches', icon: '🎀', count: categoryGroups.brooches.length },
+            { key: 'general', name: 'Techniques', icon: '🤹', count: categoryGroups.general.length }
+          ].map((category) => (
+            <div class="card text-center hover:scale-105 transition-transform">
+              <div class="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-xl mx-auto mb-3 flex items-center justify-center">
+                <span class="text-white text-xl">{category.icon}</span>
+              </div>
+              <h3 class="font-bold text-dark mb-1">{category.name}</h3>
+              <p class="text-xs text-text-light mb-3">{category.count} tutorials</p>
+              <a href={`/tutorials/${category.key}`} class="btn btn-outline btn-xs w-full">
+                Browse
+              </a>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+    
+    <!-- CTA Section -->
+    <section class="py-20 bg-gradient-to-br from-primary to-secondary">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h2 class="text-3xl sm:text-4xl font-black text-white mb-6">
+          Ready to Create Something Beautiful?
+        </h2>
+        <p class="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
+          Join our community of passionate makers and start your jewellery making journey today.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <a href="/tutorials/beginner" class="btn bg-white text-primary hover:bg-accent transition-colors text-lg px-8 py-4">
+            Start with Basics
+          </a>
+          <a href="/suppliers" class="btn btn-outline border-white text-white hover:bg-white hover:text-primary text-lg px-8 py-4">
+            Find Supplies
+          </a>
+        </div>
+      </div>
+    </section>
+  </div>
+</Layout>

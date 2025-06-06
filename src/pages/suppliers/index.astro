@@ -1,0 +1,271 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import { getCollection } from 'astro:content';
+
+const suppliers = await getCollection('suppliers', ({ data }) => data.published !== false);
+
+// Group by location
+const locationGroups = suppliers.reduce((acc, supplier) => {
+  const location = supplier.data.location;
+  if (!acc[location]) {
+    acc[location] = [];
+  }
+  acc[location].push(supplier);
+  return acc;
+}, {} as Record<string, typeof suppliers>);
+
+// Group by specialty
+const specialtyGroups = suppliers.reduce((acc, supplier) => {
+  supplier.data.specialty.forEach(spec => {
+    if (!acc[spec]) {
+      acc[spec] = [];
+    }
+    acc[spec].push(supplier);
+  });
+  return acc;
+}, {} as Record<string, typeof suppliers>);
+
+const featuredSuppliers = suppliers.filter(s => s.data.featured);
+const verifiedSuppliers = suppliers.filter(s => s.data.verified);
+---
+
+<Layout 
+  title="Trusted Bead Suppliers Directory - UK & International | Bead Fanatic"
+  description="Find the best bead suppliers and jewellery making materials. Discover verified UK and international suppliers with reviews and ratings."
+>
+  <div class="min-h-screen bg-gradient-to-br from-accent/10 to-secondary/10">
+    <!-- Header -->
+    <section class="py-20">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center">
+          <div class="inline-block mb-6">
+            <div class="flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl">
+              <span class="text-white text-2xl">🏢</span>
+            </div>
+          </div>
+          
+          <h1 class="text-4xl sm:text-5xl font-black text-dark mb-4">
+            Trusted Bead Suppliers
+          </h1>
+          
+          <p class="text-xl text-text-light max-w-3xl mx-auto mb-8">
+            Discover the best suppliers for all your beading needs. From local UK shops 
+            to international specialists, find quality materials and competitive prices.
+          </p>
+          
+          <!-- Quick Stats -->
+          <div class="flex flex-wrap justify-center gap-8 text-center">
+            <div>
+              <div class="text-3xl font-black text-primary">{suppliers.length}</div>
+              <div class="text-sm text-text-light font-semibold">Suppliers</div>
+            </div>
+            <div>
+              <div class="text-3xl font-black text-secondary">{verifiedSuppliers.length}</div>
+              <div class="text-sm text-text-light font-semibold">Verified</div>
+            </div>
+            <div>
+              <div class="text-3xl font-black text-accent">{Object.keys(locationGroups).length}</div>
+              <div class="text-sm text-text-light font-semibold">Countries</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Featured Suppliers -->
+    {featuredSuppliers.length > 0 && (
+      <section class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="text-center mb-16">
+            <h2 class="text-3xl sm:text-4xl font-black text-dark mb-4">
+              Featured Suppliers
+            </h2>
+            <p class="text-lg text-text-light max-w-2xl mx-auto">
+              Our most recommended suppliers, trusted by the Bead Fanatic community.
+            </p>
+          </div>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {featuredSuppliers.slice(0, 6).map((supplier) => (
+              <article class="card hover:scale-105 transition-transform">
+                <div class="flex items-start justify-between mb-4">
+                  <div class="flex items-center space-x-2">
+                    <h3 class="text-xl font-bold text-dark">
+                      <a href={supplier.data.website} target="_blank" rel="noopener noreferrer" class="hover:text-primary transition-colors">
+                        {supplier.data.name}
+                      </a>
+                    </h3>
+                    {supplier.data.verified && (
+                      <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-semibold">
+                        ✓ Verified
+                      </span>
+                    )}
+                  </div>
+                  {supplier.data.rating && (
+                    <div class="flex items-center space-x-1">
+                      <span class="text-yellow-400">★</span>
+                      <span class="text-sm font-semibold">{supplier.data.rating}</span>
+                    </div>
+                  )}
+                </div>
+                
+                <p class="text-text-light mb-4 line-clamp-3">
+                  {supplier.data.description}
+                </p>
+                
+                <div class="flex items-center justify-between text-xs text-text-light mb-4">
+                  <span>📍 {supplier.data.location}</span>
+                  <span class="capitalize">💰 {supplier.data.priceRange.replace('-', ' ')}</span>
+                </div>
+                
+                <div class="flex flex-wrap gap-2 mb-4">
+                  {supplier.data.specialty.slice(0, 3).map(spec => (
+                    <span class="tag text-xs">{spec}</span>
+                  ))}
+                </div>
+                
+                <div class="flex space-x-2">
+                  <a href={supplier.data.website} target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm flex-1">
+                    Visit Shop
+                  </a>
+                  <a href={`/suppliers/${supplier.slug}`} class="btn btn-outline btn-sm">
+                    Details
+                  </a>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+    
+    <!-- Filter by Location -->
+    <section class="py-20">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16">
+          <h2 class="text-3xl sm:text-4xl font-black text-dark mb-4">
+            Browse by Location
+          </h2>
+          <p class="text-lg text-text-light max-w-2xl mx-auto">
+            Find suppliers near you or discover international specialists.
+          </p>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {Object.entries(locationGroups).map(([location, suppliersInLocation]) => (
+            <div class="card text-center hover:scale-105 transition-transform">
+              <div class="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-xl mx-auto mb-4 flex items-center justify-center">
+                <span class="text-white text-xl">
+                  {location.includes('UK') || location.includes('England') || location.includes('Scotland') || location.includes('Wales') ? '🇬🇧' :
+                   location.includes('US') || location.includes('America') ? '🇺🇸' :
+                   location.includes('Germany') ? '🇩🇪' :
+                   location.includes('France') ? '🇫🇷' :
+                   location.includes('Italy') ? '🇮🇹' :
+                   location.includes('Czech') ? '🇨🇿' :
+                   '🌍'}
+                </span>
+              </div>
+              <h3 class="font-bold text-dark mb-2">{location}</h3>
+              <p class="text-sm text-text-light mb-4">{suppliersInLocation.length} suppliers</p>
+              <a href={`/suppliers/location/${encodeURIComponent(location.toLowerCase().replace(/\s+/g, '-'))}`} class="btn btn-outline btn-sm w-full">
+                Browse
+              </a>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+    
+    <!-- Specialties -->
+    <section class="py-20 bg-white">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16">
+          <h2 class="text-3xl sm:text-4xl font-black text-dark mb-4">
+            Find Specialists
+          </h2>
+          <p class="text-lg text-text-light max-w-2xl mx-auto">
+            Looking for something specific? Browse suppliers by their specialties.
+          </p>
+        </div>
+        
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {Object.entries(specialtyGroups).slice(0, 12).map(([specialty, specialistSuppliers]) => (
+            <div class="card text-center hover:scale-105 transition-transform">
+              <div class="w-10 h-10 bg-gradient-to-br from-secondary to-accent rounded-lg mx-auto mb-3 flex items-center justify-center">
+                <span class="text-dark text-lg">
+                  {specialty.toLowerCase().includes('glass') ? '💎' :
+                   specialty.toLowerCase().includes('metal') ? '✨' :
+                   specialty.toLowerCase().includes('stone') ? '🧿' :
+                   specialty.toLowerCase().includes('wood') ? '🌳' :
+                   specialty.toLowerCase().includes('seed') ? '🌾' :
+                   specialty.toLowerCase().includes('vintage') ? '🕰️' :
+                   specialty.toLowerCase().includes('czech') ? '🇨🇿' :
+                   specialty.toLowerCase().includes('tool') ? '🔧' :
+                   '💼'}
+                </span>
+              </div>
+              <h4 class="font-bold text-dark text-sm mb-1">{specialty}</h4>
+              <p class="text-xs text-text-light mb-3">{specialistSuppliers.length} suppliers</p>
+              <a href={`/suppliers/specialty/${encodeURIComponent(specialty.toLowerCase().replace(/\s+/g, '-'))}`} class="btn btn-outline btn-xs w-full">
+                Browse
+              </a>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+    
+    <!-- Verification Info -->
+    <section class="py-20 bg-accent/20">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="card text-center">
+          <div class="w-16 h-16 bg-gradient-to-br from-green-400 to-green-600 rounded-2xl mx-auto mb-6 flex items-center justify-center">
+            <span class="text-white text-2xl">✓</span>
+          </div>
+          <h2 class="text-2xl font-bold text-dark mb-4">
+            Supplier Verification
+          </h2>
+          <p class="text-text-light mb-6 max-w-2xl mx-auto">
+            We verify our suppliers to ensure quality, reliability, and excellent customer service. 
+            Look for the verification badge when choosing your supplier.
+          </p>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+            <div>
+              <div class="font-semibold text-dark mb-2">✓ Quality Assurance</div>
+              <p class="text-text-light">Products meet our quality standards</p>
+            </div>
+            <div>
+              <div class="font-semibold text-dark mb-2">✓ Reliable Delivery</div>
+              <p class="text-text-light">Consistent shipping and handling</p>
+            </div>
+            <div>
+              <div class="font-semibold text-dark mb-2">✓ Customer Service</div>
+              <p class="text-text-light">Responsive and helpful support</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- CTA Section -->
+    <section class="py-20 bg-gradient-to-br from-primary to-secondary">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h2 class="text-3xl sm:text-4xl font-black text-white mb-6">
+          Know a Great Supplier?
+        </h2>
+        <p class="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
+          Help our community by recommending suppliers you trust. 
+          We'll review and add the best ones to our directory.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <a href="/suppliers/submit" class="btn bg-white text-primary hover:bg-accent transition-colors text-lg px-8 py-4">
+            Recommend Supplier
+          </a>
+          <a href="/contact" class="btn btn-outline border-white text-white hover:bg-white hover:text-primary text-lg px-8 py-4">
+            Contact Us
+          </a>
+        </div>
+      </div>
+    </section>
+  </div>
+</Layout>
