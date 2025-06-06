@@ -1,0 +1,224 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import { createSearchIndex, searchContent } from '@/utils/search';
+
+const searchQuery = Astro.url.searchParams.get('q') || '';
+const category = Astro.url.searchParams.get('category') || '';
+
+let searchResults: any[] = [];
+let totalResults = 0;
+
+if (searchQuery.length >= 2) {
+  const searchIndex = await createSearchIndex();
+  
+  // Filter by category if specified
+  const documentsToSearch = category 
+    ? searchIndex.filter(doc => doc.category === category)
+    : searchIndex;
+  
+  searchResults = searchContent(searchQuery, documentsToSearch, 20);
+  totalResults = searchResults.length;
+}
+---
+
+<Layout 
+  title={searchQuery ? `Search Results for "${searchQuery}" | Bead Fanatic` : 'Search | Bead Fanatic'}
+  description={searchQuery ? `Find bead types, tutorials, and suppliers related to "${searchQuery}"` : 'Search our comprehensive database of beads, tutorials, and suppliers.'}
+>
+  <div class="min-h-screen bg-gradient-to-br from-accent/10 to-secondary/10">
+    <!-- Header -->
+    <section class="py-20">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center">
+          <div class="inline-block mb-6">
+            <div class="flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl">
+              <span class="text-white text-2xl">🔍</span>
+            </div>
+          </div>
+          
+          <h1 class="text-4xl sm:text-5xl font-black text-dark mb-6">
+            {searchQuery ? `Search Results` : 'Search Bead Fanatic'}
+          </h1>
+          
+          {searchQuery ? (
+            <p class="text-xl text-text-light max-w-2xl mx-auto mb-8">
+              Found {totalResults} results for "{searchQuery}"
+            </p>
+          ) : (
+            <p class="text-xl text-text-light max-w-2xl mx-auto mb-8">
+              Search our comprehensive database of bead types, tutorials, suppliers, and blog posts.
+            </p>
+          )}
+          
+          <!-- Search Form -->
+          <form method="GET" class="max-w-2xl mx-auto">
+            <div class="relative">
+              <input 
+                type="text" 
+                name="q"
+                value={searchQuery}
+                placeholder="Search beads, tutorials, suppliers..."
+                class="w-full px-6 py-4 pl-14 text-lg border border-gray-200 rounded-2xl focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-colors"
+              >
+              <svg class="absolute left-4 top-1/2 transform -translate-y-1/2 w-6 h-6 text-text-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+              <button type="submit" class="absolute right-2 top-1/2 transform -translate-y-1/2 btn btn-primary">
+                Search
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+    
+    {searchQuery && (
+      <section class="pb-20">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          {totalResults > 0 ? (
+            <>
+              <!-- Category Filter -->
+              <div class="flex flex-wrap gap-3 mb-8 justify-center">
+                <a 
+                  href={`/search?q=${encodeURIComponent(searchQuery)}`}
+                  class={`tag hover:bg-primary hover:text-white transition-colors ${
+                    !category ? 'bg-primary text-white' : ''
+                  }`}
+                >
+                  All Results ({totalResults})
+                </a>
+                {['bead-type', 'tutorial', 'supplier', 'blog'].map(cat => {
+                  const count = searchResults.filter(r => r.category === cat).length;
+                  if (count === 0) return null;
+                  return (
+                    <a 
+                      href={`/search?q=${encodeURIComponent(searchQuery)}&category=${cat}`}
+                      class={`tag hover:bg-primary hover:text-white transition-colors ${
+                        category === cat ? 'bg-primary text-white' : ''
+                      }`}
+                    >
+                      {cat.charAt(0).toUpperCase() + cat.slice(1).replace('-', ' ')}s ({count})
+                    </a>
+                  );
+                })}
+              </div>
+              
+              <!-- Results -->
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {searchResults.map((result) => (
+                  <article class="card hover:scale-105 transition-transform">
+                    <div class={`aspect-video rounded-xl mb-4 flex items-center justify-center ${
+                      result.category === 'bead-type' ? 'bg-gradient-to-br from-primary to-secondary' :
+                      result.category === 'tutorial' ? 'bg-gradient-to-br from-secondary to-accent' :
+                      result.category === 'supplier' ? 'bg-gradient-to-br from-accent to-primary' :
+                      'bg-gradient-to-br from-primary to-dark'
+                    }`}>
+                      <span class="text-white text-4xl">
+                        {result.category === 'bead-type' ? '💎' :
+                         result.category === 'tutorial' ? '📚' :
+                         result.category === 'supplier' ? '🏢' :
+                         '📰'}
+                      </span>
+                    </div>
+                    
+                    <div class="flex items-center justify-between mb-4">
+                      <span class={`tag text-xs ${
+                        result.category === 'bead-type' ? 'bg-purple-100 text-purple-800' :
+                        result.category === 'tutorial' ? 'bg-green-100 text-green-800' :
+                        result.category === 'supplier' ? 'bg-blue-100 text-blue-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {result.category.replace('-', ' ')}
+                      </span>
+                      {result.score && (
+                        <span class="text-xs text-text-light">
+                          {Math.round((1 - result.score) * 100)}% match
+                        </span>
+                      )}
+                    </div>
+                    
+                    <h3 class="text-xl font-bold text-dark mb-4">
+                      <a href={result.url} class="hover:text-primary transition-colors">
+                        {result.title}
+                      </a>
+                    </h3>
+                    
+                    <p class="text-text-light mb-4 line-clamp-3">
+                      {result.description}
+                    </p>
+                    
+                    {result.tags && result.tags.length > 0 && (
+                      <div class="flex flex-wrap gap-2 mb-4">
+                        {result.tags.slice(0, 3).map((tag: string) => (
+                          <span class="tag text-xs">{tag}</span>
+                        ))}
+                      </div>
+                    )}
+                    
+                    <a href={result.url} class="btn btn-primary btn-sm w-full">
+                      View Details
+                    </a>
+                  </article>
+                ))}
+              </div>
+            </>
+          ) : (
+            <!-- No Results -->
+            <div class="text-center py-20">
+              <div class="w-20 h-20 bg-gradient-to-br from-text-light to-gray-300 rounded-full mx-auto mb-6 flex items-center justify-center">
+                <span class="text-white text-3xl">🔍</span>
+              </div>
+              <h2 class="text-2xl font-bold text-dark mb-4">
+                No results found for "{searchQuery}"
+              </h2>
+              <p class="text-text-light mb-8 max-w-md mx-auto">
+                Try adjusting your search terms or browse our categories below.
+              </p>
+              
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-2xl mx-auto">
+                <a href="/bead-types" class="btn btn-outline btn-sm">
+                  Browse Bead Types
+                </a>
+                <a href="/tutorials" class="btn btn-outline btn-sm">
+                  View Tutorials
+                </a>
+                <a href="/suppliers" class="btn btn-outline btn-sm">
+                  Find Suppliers
+                </a>
+                <a href="/identify" class="btn btn-outline btn-sm">
+                  Identify Bead
+                </a>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+    )}
+    
+    {!searchQuery && (
+      <!-- Popular Searches -->
+      <section class="pb-20">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="text-center mb-12">
+            <h2 class="text-3xl font-bold text-dark mb-6">Popular Searches</h2>
+          </div>
+          
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {[
+              'venetian glass', 'seed beads', 'czech glass', 'metal beads',
+              'stone beads', 'findings', 'vintage beads', 'lampwork',
+              'necklace tutorial', 'bracelet making', 'earring designs', 'beginner tutorials'
+            ].map(term => (
+              <a 
+                href={`/search?q=${encodeURIComponent(term)}`}
+                class="card text-center hover:scale-105 transition-transform py-4"
+              >
+                <span class="text-sm font-semibold text-dark">{term}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+  </div>
+</Layout>
