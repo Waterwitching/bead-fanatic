@@ -1,0 +1,16 @@
+name = "bead-identifier"
+compatibility_date = "2024-05-01"
+
+[env.production]
+name = "bead-identifier"
+route = { pattern = "beadfanatic.co.uk/api/identify-bead", zone_name = "beadfanatic.co.uk" }
+
+[env.staging]
+name = "bead-identifier-staging"
+
+[[env.production.kv_namespaces]]
+binding = "BEAD_DATA"
+id = "your-kv-namespace-id"
+
+[vars]
+HF_API_TOKEN = "your-huggingface-token"
