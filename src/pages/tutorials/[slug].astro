@@ -1,0 +1,301 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import { getCollection } from 'astro:content';
+
+export async function getStaticPaths() {
+  const tutorials = await getCollection('tutorials');
+  return tutorials.map((tutorial) => ({
+    params: { slug: tutorial.slug },
+    props: { tutorial },
+  }));
+}
+
+const { tutorial } = Astro.props;
+const { Content } = await tutorial.render();
+
+// Get related tutorials
+const allTutorials = await getCollection('tutorials', ({ data }) => data.published);
+const relatedTutorials = allTutorials.filter(t => 
+  t.slug !== tutorial.slug && 
+  (t.data.category === tutorial.data.category || 
+   t.data.difficulty === tutorial.data.difficulty ||
+   t.data.tags.some(tag => tutorial.data.tags.includes(tag)))
+).slice(0, 3);
+---
+
+<Layout 
+  title={`${tutorial.data.title} - Step-by-Step Tutorial | Bead Fanatic`}
+  description={tutorial.data.description}
+  image={tutorial.data.featuredImage}
+>
+  <article class="min-h-screen bg-gradient-to-br from-accent/5 to-secondary/5">
+    <!-- Hero Section -->
+    <section class="py-20">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12">
+          <!-- Breadcrumb -->
+          <nav class="text-sm text-text-light mb-6">
+            <a href="/" class="hover:text-primary">Home</a>
+            <span class="mx-2">/</span>
+            <a href="/tutorials" class="hover:text-primary">Tutorials</a>
+            <span class="mx-2">/</span>
+            <span class="capitalize">{tutorial.data.category}</span>
+            <span class="mx-2">/</span>
+            <span class="text-dark font-semibold">{tutorial.data.title}</span>
+          </nav>
+          
+          <div class="inline-block mb-6">
+            <div class="flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl">
+              <span class="text-white text-2xl">🎓</span>
+            </div>
+          </div>
+          
+          <h1 class="text-4xl sm:text-5xl font-black text-dark mb-6">
+            {tutorial.data.title}
+          </h1>
+          
+          <p class="text-xl text-text-light max-w-2xl mx-auto mb-8">
+            {tutorial.data.description}
+          </p>
+          
+          <!-- Tutorial Meta -->
+          <div class="flex flex-wrap justify-center gap-6 text-sm">
+            <div class="flex items-center space-x-2">
+              <span class="w-2 h-2 bg-primary rounded-full"></span>
+              <span class="text-text-light">Difficulty:</span>
+              <span class={`font-semibold capitalize ${
+                tutorial.data.difficulty === 'beginner' ? 'text-green-600' :
+                tutorial.data.difficulty === 'intermediate' ? 'text-yellow-600' :
+                'text-red-600'
+              }`}>{tutorial.data.difficulty}</span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <span class="w-2 h-2 bg-secondary rounded-full"></span>
+              <span class="text-text-light">Time:</span>
+              <span class="font-semibold text-dark">{tutorial.data.timeRequired}</span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <span class="w-2 h-2 bg-accent rounded-full"></span>
+              <span class="text-text-light">Cost:</span>
+              <span class="font-semibold text-dark capitalize">{tutorial.data.supplyCost.replace('-', ' ')}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Featured Image -->
+    {tutorial.data.featuredImage && (
+      <section class="py-12 bg-white">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="card p-0 overflow-hidden">
+            <div class="aspect-video bg-gradient-to-br from-secondary to-accent flex items-center justify-center">
+              <span class="text-6xl">📚</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    )}
+    
+    <!-- Materials & Tools -->
+    <section class="py-12">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <!-- Materials -->
+          <div class="card">
+            <h3 class="text-2xl font-bold text-dark mb-6 flex items-center">
+              <span class="w-8 h-8 bg-gradient-to-br from-primary to-secondary rounded-lg mr-3 flex items-center justify-center">
+                <span class="text-white text-sm">🧾</span>
+              </span>
+              Materials Needed
+            </h3>
+            <div class="space-y-3">
+              {tutorial.data.materialsNeeded.map(material => (
+                <div class="flex items-center space-x-3">
+                  <span class="w-2 h-2 bg-primary rounded-full flex-shrink-0"></span>
+                  <span class="text-dark font-semibold">{material}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <!-- Tools -->
+          <div class="card">
+            <h3 class="text-2xl font-bold text-dark mb-6 flex items-center">
+              <span class="w-8 h-8 bg-gradient-to-br from-secondary to-accent rounded-lg mr-3 flex items-center justify-center">
+                <span class="text-dark text-sm">🛠️</span>
+              </span>
+              Tools Required
+            </h3>
+            <div class="space-y-3">
+              {tutorial.data.toolsRequired.map(tool => (
+                <div class="flex items-center space-x-3">
+                  <span class="w-2 h-2 bg-secondary rounded-full flex-shrink-0"></span>
+                  <span class="text-dark font-semibold">{tool}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Tutorial Gallery -->
+    {tutorial.data.gallery && tutorial.data.gallery.length > 0 && (
+      <section class="py-12 bg-white">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h3 class="text-3xl font-bold text-dark mb-8 text-center">
+            Step-by-Step Photos
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {tutorial.data.gallery.map((image, index) => (
+              <div class="card p-0 overflow-hidden">
+                <div class="aspect-square bg-gradient-to-br from-secondary to-accent flex items-center justify-center relative">
+                  <span class="text-4xl">📷</span>
+                  {image.step && (
+                    <div class="absolute top-2 left-2 w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center font-bold text-sm">
+                      {image.step}
+                    </div>
+                  )}
+                </div>
+                <div class="p-4">
+                  <p class="text-sm text-text-light">{image.alt}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+    
+    <!-- Main Tutorial Content -->
+    <section class="py-12">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="card">
+          <div class="prose max-w-none">
+            <Content />
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Techniques & Bead Types -->
+    <section class="py-12 bg-white">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <!-- Techniques -->
+          <div class="card">
+            <h3 class="text-2xl font-bold text-dark mb-6 flex items-center">
+              <span class="w-8 h-8 bg-gradient-to-br from-primary to-secondary rounded-lg mr-3 flex items-center justify-center">
+                <span class="text-white text-sm">✨</span>
+              </span>
+              Techniques Learned
+            </h3>
+            <div class="grid grid-cols-1 gap-3">
+              {tutorial.data.techniques.map(technique => (
+                <div class="bg-accent/50 rounded-lg p-3">
+                  <span class="text-sm font-semibold text-dark">{technique}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <!-- Bead Types -->
+          <div class="card">
+            <h3 class="text-2xl font-bold text-dark mb-6 flex items-center">
+              <span class="w-8 h-8 bg-gradient-to-br from-secondary to-accent rounded-lg mr-3 flex items-center justify-center">
+                <span class="text-dark text-sm">💎</span>
+              </span>
+              Bead Types Used
+            </h3>
+            <div class="grid grid-cols-1 gap-3">
+              {tutorial.data.beadTypesUsed.map(beadType => (
+                <div class="bg-secondary/20 rounded-lg p-3">
+                  <a href={`/bead-types/${beadType}`} class="text-sm font-semibold text-dark hover:text-primary transition-colors">
+                    {beadType.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Tags -->
+    <section class="py-12">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h3 class="text-2xl font-bold text-dark mb-6">Tutorial Tags</h3>
+        <div class="flex flex-wrap justify-center gap-3">
+          {tutorial.data.tags.map(tag => (
+            <a href={`/search?q=${encodeURIComponent(tag)}`} class="tag hover:bg-primary hover:text-white transition-colors">
+              {tag}
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
+    
+    <!-- Related Tutorials -->
+    {relatedTutorials.length > 0 && (
+      <section class="py-20 bg-white">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h3 class="text-3xl font-bold text-dark mb-8 text-center">
+            More Tutorials You'll Love
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {relatedTutorials.map(related => (
+              <article class="card hover:scale-105 transition-transform">
+                <div class="aspect-video bg-gradient-to-br from-secondary to-accent rounded-xl mb-4 flex items-center justify-center">
+                  <span class="text-4xl">📚</span>
+                </div>
+                <div class="flex items-start justify-between mb-2">
+                  <h4 class="text-xl font-bold text-dark">
+                    <a href={`/tutorials/${related.slug}`} class="hover:text-primary transition-colors">
+                      {related.data.title}
+                    </a>
+                  </h4>
+                  <span class={`tag text-xs ${
+                    related.data.difficulty === 'beginner' ? 'bg-green-100 text-green-800' :
+                    related.data.difficulty === 'intermediate' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {related.data.difficulty}
+                  </span>
+                </div>
+                <p class="text-text-light mb-4 line-clamp-3">{related.data.description}</p>
+                <div class="flex items-center justify-between text-xs text-text-light mb-4">
+                  <span>🕰️ {related.data.timeRequired}</span>
+                  <span class="capitalize">💰 {related.data.supplyCost.replace('-', ' ')}</span>
+                </div>
+                <a href={`/tutorials/${related.slug}`} class="btn btn-primary btn-sm w-full">
+                  Start Tutorial
+                </a>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+    
+    <!-- CTA Section -->
+    <section class="py-20 bg-gradient-to-br from-primary to-secondary">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h3 class="text-3xl font-bold text-white mb-6">
+          Ready for Your Next Project?
+        </h3>
+        <p class="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
+          Explore more tutorials and find the perfect supplies for your next creation.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <a href="/tutorials" class="btn bg-white text-primary hover:bg-accent transition-colors text-lg px-8 py-4">
+            More Tutorials
+          </a>
+          <a href="/suppliers" class="btn btn-outline border-white text-white hover:bg-white hover:text-primary text-lg px-8 py-4">
+            Find Supplies
+          </a>
+        </div>
+      </div>
+    </section>
+  </article>
+</Layout>

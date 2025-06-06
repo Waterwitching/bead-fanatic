@@ -1,0 +1,314 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import { getCollection } from 'astro:content';
+
+export async function getStaticPaths() {
+  const beadTypes = await getCollection('bead-types');
+  return beadTypes.map((bead) => ({
+    params: { slug: bead.slug },
+    props: { bead },
+  }));
+}
+
+const { bead } = Astro.props;
+const { Content } = await bead.render();
+
+// Get related beads
+const allBeads = await getCollection('bead-types', ({ data }) => data.published);
+const relatedBeads = allBeads.filter(b => 
+  b.slug !== bead.slug && 
+  (b.data.category === bead.data.category || 
+   bead.data.relatedBeads?.includes(b.slug) ||
+   b.data.tags.some(tag => bead.data.tags.includes(tag)))
+).slice(0, 3);
+---
+
+<Layout 
+  title={`${bead.data.title} - Complete Guide | Bead Fanatic`}
+  description={bead.data.description}
+  image={bead.data.images?.[0]?.src}
+>
+  <article class="min-h-screen bg-gradient-to-br from-accent/5 to-secondary/5">
+    <!-- Hero Section -->
+    <section class="py-20">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12">
+          <!-- Breadcrumb -->
+          <nav class="text-sm text-text-light mb-6">
+            <a href="/" class="hover:text-primary">Home</a>
+            <span class="mx-2">/</span>
+            <a href="/bead-types" class="hover:text-primary">Bead Types</a>
+            <span class="mx-2">/</span>
+            <span class="capitalize">{bead.data.category}</span>
+            <span class="mx-2">/</span>
+            <span class="text-dark font-semibold">{bead.data.title}</span>
+          </nav>
+          
+          <div class="inline-block mb-6">
+            <div class="flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl">
+              <span class="text-white text-2xl">💎</span>
+            </div>
+          </div>
+          
+          <h1 class="text-4xl sm:text-5xl font-black text-dark mb-6">
+            {bead.data.title}
+          </h1>
+          
+          <p class="text-xl text-text-light max-w-2xl mx-auto mb-8">
+            {bead.data.description}
+          </p>
+          
+          <!-- Meta Information -->
+          <div class="flex flex-wrap justify-center gap-6 text-sm">
+            <div class="flex items-center space-x-2">
+              <span class="w-2 h-2 bg-primary rounded-full"></span>
+              <span class="text-text-light">Category:</span>
+              <span class="font-semibold text-dark capitalize">{bead.data.category}</span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <span class="w-2 h-2 bg-secondary rounded-full"></span>
+              <span class="text-text-light">Origin:</span>
+              <span class="font-semibold text-dark">{bead.data.origin || 'Various'}</span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <span class="w-2 h-2 bg-accent rounded-full"></span>
+              <span class="text-text-light">Difficulty:</span>
+              <span class={`font-semibold capitalize ${
+                bead.data.difficulty === 'beginner' ? 'text-green-600' :
+                bead.data.difficulty === 'intermediate' ? 'text-yellow-600' :
+                'text-red-600'
+              }`}>{bead.data.difficulty}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Image Gallery -->
+    {bead.data.images && bead.data.images.length > 0 && (
+      <section class="py-12 bg-white">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {bead.data.images.map((image, index) => (
+              <div class="card p-0 overflow-hidden hover:scale-105 transition-transform">
+                <div class="aspect-square bg-gradient-to-br from-secondary to-accent flex items-center justify-center">
+                  <span class="text-4xl">💎</span>
+                </div>
+                {image.caption && (
+                  <div class="p-4">
+                    <p class="text-sm text-text-light">{image.caption}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+    
+    <!-- Quick Facts -->
+    <section class="py-12">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <!-- Materials -->
+          <div class="card text-center">
+            <div class="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-xl mx-auto mb-4 flex items-center justify-center">
+              <span class="text-white text-xl">🧾</span>
+            </div>
+            <h3 class="font-bold text-dark mb-2">Materials</h3>
+            <div class="space-y-1">
+              {bead.data.materials.map(material => (
+                <div class="tag text-xs">{material}</div>
+              ))}
+            </div>
+          </div>
+          
+          <!-- Colours -->
+          <div class="card text-center">
+            <div class="w-12 h-12 bg-gradient-to-br from-secondary to-accent rounded-xl mx-auto mb-4 flex items-center justify-center">
+              <span class="text-dark text-xl">🌈</span>
+            </div>
+            <h3 class="font-bold text-dark mb-2">Common Colours</h3>
+            <div class="space-y-1">
+              {bead.data.colours.slice(0, 4).map(colour => (
+                <div class="tag text-xs">{colour}</div>
+              ))}
+              {bead.data.colours.length > 4 && (
+                <div class="text-xs text-text-light">+{bead.data.colours.length - 4} more</div>
+              )}
+            </div>
+          </div>
+          
+          <!-- Shapes -->
+          <div class="card text-center">
+            <div class="w-12 h-12 bg-gradient-to-br from-accent to-primary rounded-xl mx-auto mb-4 flex items-center justify-center">
+              <span class="text-white text-xl">🔸</span>
+            </div>
+            <h3 class="font-bold text-dark mb-2">Shapes</h3>
+            <div class="space-y-1">
+              {bead.data.shapes.map(shape => (
+                <div class="tag text-xs">{shape}</div>
+              ))}
+            </div>
+          </div>
+          
+          <!-- Sizes -->
+          <div class="card text-center">
+            <div class="w-12 h-12 bg-gradient-to-br from-primary to-dark rounded-xl mx-auto mb-4 flex items-center justify-center">
+              <span class="text-white text-xl">📏</span>
+            </div>
+            <h3 class="font-bold text-dark mb-2">Available Sizes</h3>
+            <div class="space-y-1">
+              {bead.data.sizes.slice(0, 4).map(size => (
+                <div class="tag text-xs">{size}</div>
+              ))}
+              {bead.data.sizes.length > 4 && (
+                <div class="text-xs text-text-light">+{bead.data.sizes.length - 4} more</div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Main Content -->
+    <section class="py-12 bg-white">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="prose max-w-none">
+          <Content />
+        </div>
+      </div>
+    </section>
+    
+    <!-- Techniques & Uses -->
+    <section class="py-12">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <!-- Techniques -->
+          <div class="card">
+            <h3 class="text-2xl font-bold text-dark mb-6 flex items-center">
+              <span class="w-8 h-8 bg-gradient-to-br from-primary to-secondary rounded-lg mr-3 flex items-center justify-center">
+                <span class="text-white text-sm">🛠️</span>
+              </span>
+              Techniques Used
+            </h3>
+            <div class="grid grid-cols-2 gap-3">
+              {bead.data.techniques.map(technique => (
+                <div class="bg-accent/50 rounded-lg p-3 text-center">
+                  <span class="text-sm font-semibold text-dark">{technique}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <!-- Uses -->
+          <div class="card">
+            <h3 class="text-2xl font-bold text-dark mb-6 flex items-center">
+              <span class="w-8 h-8 bg-gradient-to-br from-secondary to-accent rounded-lg mr-3 flex items-center justify-center">
+                <span class="text-dark text-sm">✨</span>
+              </span>
+              Perfect For
+            </h3>
+            <div class="grid grid-cols-1 gap-3">
+              {bead.data.uses.map(use => (
+                <div class="bg-secondary/20 rounded-lg p-3">
+                  <span class="text-sm font-semibold text-dark">{use}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Suppliers -->
+    {bead.data.suppliers && bead.data.suppliers.length > 0 && (
+      <section class="py-12 bg-white">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h3 class="text-3xl font-bold text-dark mb-8 text-center">
+            Where to Buy {bead.data.title}
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {bead.data.suppliers.map(supplier => (
+              <div class="card hover:scale-105 transition-transform">
+                <h4 class="font-bold text-dark mb-2">{supplier.name}</h4>
+                <p class="text-sm text-text-light mb-3">📍 {supplier.location}</p>
+                <a href={supplier.url} target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm w-full">
+                  Visit Supplier
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+    
+    <!-- Tags -->
+    <section class="py-12">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h3 class="text-2xl font-bold text-dark mb-6">Tags</h3>
+        <div class="flex flex-wrap justify-center gap-3">
+          {bead.data.tags.map(tag => (
+            <a href={`/search?q=${encodeURIComponent(tag)}`} class="tag hover:bg-primary hover:text-white transition-colors">
+              {tag}
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
+    
+    <!-- Related Beads -->
+    {relatedBeads.length > 0 && (
+      <section class="py-20 bg-white">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h3 class="text-3xl font-bold text-dark mb-8 text-center">
+            You Might Also Like
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {relatedBeads.map(related => (
+              <article class="card hover:scale-105 transition-transform">
+                <div class="aspect-video bg-gradient-to-br from-secondary to-accent rounded-xl mb-4 flex items-center justify-center">
+                  <span class="text-4xl">💎</span>
+                </div>
+                <h4 class="text-xl font-bold text-dark mb-2">
+                  <a href={`/bead-types/${related.slug}`} class="hover:text-primary transition-colors">
+                    {related.data.title}
+                  </a>
+                </h4>
+                <p class="text-text-light mb-4 line-clamp-3">{related.data.description}</p>
+                <div class="flex flex-wrap gap-2 mb-4">
+                  {related.data.tags.slice(0, 3).map(tag => (
+                    <span class="tag text-xs">{tag}</span>
+                  ))}
+                </div>
+                <a href={`/bead-types/${related.slug}`} class="btn btn-outline btn-sm w-full">
+                  Learn More
+                </a>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+    
+    <!-- CTA Section -->
+    <section class="py-20 bg-gradient-to-br from-primary to-secondary">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h3 class="text-3xl font-bold text-white mb-6">
+          Found an Unidentified Bead?
+        </h3>
+        <p class="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
+          Use our AI-powered bead identifier to help discover what type of bead you have.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <a href="/identify" class="btn bg-white text-primary hover:bg-accent transition-colors text-lg px-8 py-4">
+            🔍 Try Bead Identifier
+          </a>
+          <a href="/bead-types" class="btn btn-outline border-white text-white hover:bg-white hover:text-primary text-lg px-8 py-4">
+            Browse More Types
+          </a>
+        </div>
+      </div>
+    </section>
+  </article>
+</Layout>
