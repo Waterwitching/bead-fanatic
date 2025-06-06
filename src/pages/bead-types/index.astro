@@ -1,0 +1,182 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import { getCollection } from 'astro:content';
+
+const beadTypes = await getCollection('bead-types', ({ data }) => data.published);
+
+// Group by category
+const categoriesMap = beadTypes.reduce((acc, bead) => {
+  const category = bead.data.category;
+  if (!acc[category]) {
+    acc[category] = [];
+  }
+  acc[category].push(bead);
+  return acc;
+}, {} as Record<string, typeof beadTypes>);
+
+const categories = [
+  { key: 'glass', name: 'Glass Beads', icon: '💎', description: 'Beautiful glass beads in various styles and origins' },
+  { key: 'metal', name: 'Metal Beads', icon: '✨', description: 'Durable metal beads from silver to gold and everything between' },
+  { key: 'stone', name: 'Stone Beads', icon: '🧿', description: 'Natural and semi-precious stone beads for elegant jewellery' },
+  { key: 'ceramic', name: 'Ceramic Beads', icon: '🏺', description: 'Handcrafted ceramic and porcelain beads with unique finishes' },
+  { key: 'wood', name: 'Wood Beads', icon: '🌳', description: 'Natural wood beads for organic and earthy designs' },
+  { key: 'plastic', name: 'Plastic Beads', icon: '🌈', description: 'Versatile plastic beads in endless colours and shapes' },
+  { key: 'findings', name: 'Findings', icon: '🔗', description: 'Essential components for completing your jewellery projects' },
+  { key: 'vintage', name: 'Vintage Beads', icon: '🕰️', description: 'Rare and collectible vintage beads with historical significance' }
+];
+---
+
+<Layout 
+  title="Bead Types Directory - Complete Guide | Bead Fanatic"
+  description="Explore our comprehensive directory of bead types including glass, metal, stone, ceramic, wood, and vintage beads. Learn about origins, materials, and uses."
+>
+  <div class="min-h-screen bg-gradient-to-br from-accent/10 to-secondary/10">
+    <!-- Header -->
+    <section class="py-20">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center">
+          <div class="inline-block mb-6">
+            <div class="flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl">
+              <span class="text-white text-2xl">📚</span>
+            </div>
+          </div>
+          
+          <h1 class="text-4xl sm:text-5xl font-black text-dark mb-4">
+            Bead Types Directory
+          </h1>
+          
+          <p class="text-xl text-text-light max-w-3xl mx-auto mb-8">
+            Discover our comprehensive collection of bead types from around the world. 
+            Each entry includes detailed information about materials, origins, uses, and suppliers.
+          </p>
+          
+          <!-- Quick Stats -->
+          <div class="flex flex-wrap justify-center gap-8 text-center">
+            <div>
+              <div class="text-3xl font-black text-primary">{beadTypes.length}</div>
+              <div class="text-sm text-text-light font-semibold">Bead Types</div>
+            </div>
+            <div>
+              <div class="text-3xl font-black text-secondary">{Object.keys(categoriesMap).length}</div>
+              <div class="text-sm text-text-light font-semibold">Categories</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Categories Grid -->
+    <section class="pb-20">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {categories.map((category) => {
+            const beadsInCategory = categoriesMap[category.key] || [];
+            return (
+              <div class="card hover:scale-105 transition-transform group">
+                <div class="text-center">
+                  <div class="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl mx-auto mb-4 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <span class="text-white text-2xl">{category.icon}</span>
+                  </div>
+                  
+                  <h2 class="text-xl font-bold text-dark mb-2">
+                    <a href={`/bead-types/${category.key}`} class="hover:text-primary transition-colors">
+                      {category.name}
+                    </a>
+                  </h2>
+                  
+                  <p class="text-text-light text-sm mb-4">
+                    {category.description}
+                  </p>
+                  
+                  <div class="flex justify-between items-center text-xs text-text-light mb-4">
+                    <span>{beadsInCategory.length} types</span>
+                    <span class="tag">Popular</span>
+                  </div>
+                  
+                  <a href={`/bead-types/${category.key}`} class="btn btn-outline btn-sm w-full">
+                    Explore {category.name}
+                  </a>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+    
+    <!-- Featured Beads -->
+    {beadTypes.filter(bead => bead.data.featured).length > 0 && (
+      <section class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="text-center mb-16">
+            <h2 class="text-3xl sm:text-4xl font-black text-dark mb-4">
+              Featured Bead Types
+            </h2>
+            <p class="text-lg text-text-light max-w-2xl mx-auto">
+              Popular and trending bead types from our community.
+            </p>
+          </div>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {beadTypes.filter(bead => bead.data.featured).slice(0, 6).map((bead) => (
+              <article class="card hover:scale-105 transition-transform">
+                <div class="aspect-video bg-gradient-to-br from-secondary to-accent rounded-xl mb-4 flex items-center justify-center">
+                  <span class="text-4xl">💎</span>
+                </div>
+                
+                <div class="flex items-start justify-between mb-2">
+                  <h3 class="text-xl font-bold text-dark">
+                    <a href={`/bead-types/${bead.slug}`} class="hover:text-primary transition-colors">
+                      {bead.data.title}
+                    </a>
+                  </h3>
+                  <span class="tag text-xs capitalize">{bead.data.category}</span>
+                </div>
+                
+                <p class="text-text-light mb-4 line-clamp-3">
+                  {bead.data.description}
+                </p>
+                
+                <div class="flex flex-wrap gap-2 mb-4">
+                  {bead.data.tags.slice(0, 3).map(tag => (
+                    <span class="tag text-xs">{tag}</span>
+                  ))}
+                </div>
+                
+                <div class="flex items-center justify-between text-xs text-text-light mb-4">
+                  <span class="capitalize">{bead.data.difficulty} level</span>
+                  <span class="capitalize">{bead.data.priceRange.replace('-', ' ')}</span>
+                </div>
+                
+                <a href={`/bead-types/${bead.slug}`} class="btn btn-primary btn-sm w-full">
+                  Learn More
+                </a>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+    
+    <!-- CTA Section -->
+    <section class="py-20 bg-gradient-to-br from-primary to-secondary">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h2 class="text-3xl sm:text-4xl font-black text-white mb-6">
+          Can't Find What You're Looking For?
+        </h2>
+        <p class="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
+          Our bead identifier tool can help you identify mystery beads, 
+          or contact our expert community for assistance.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <a href="/identify" class="btn bg-white text-primary hover:bg-accent transition-colors text-lg px-8 py-4">
+            🔍 Try Bead Identifier
+          </a>
+          <a href="/contact" class="btn btn-outline border-white text-white hover:bg-white hover:text-primary text-lg px-8 py-4">
+            💬 Ask the Community
+          </a>
+        </div>
+      </div>
+    </section>
+  </div>
+</Layout>

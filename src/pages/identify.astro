@@ -1,0 +1,316 @@
+---
+import Layout from '@/layouts/Layout.astro';
+---
+
+<Layout 
+  title="Bead Identifier - AI-Powered Bead Recognition | Bead Fanatic"
+  description="Upload a photo of your bead and let our AI identify it. Get detailed information about bead types, origins, materials, and more."
+>
+  <div class="min-h-screen bg-gradient-to-br from-accent/20 to-secondary/20 py-12">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <!-- Header -->
+      <div class="text-center mb-12">
+        <div class="inline-block mb-6">
+          <div class="flex items-center justify-center w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl">
+            <span class="text-white text-2xl">🔍</span>
+          </div>
+        </div>
+        <h1 class="text-4xl sm:text-5xl font-black text-dark mb-4">
+          Bead Identifier
+        </h1>
+        <p class="text-xl text-text-light max-w-2xl mx-auto">
+          Upload a clear photo of your bead and our AI will help identify the type, 
+          material, origin, and provide detailed information.
+        </p>
+      </div>
+      
+      <!-- Identification Tool -->
+      <div class="card max-w-2xl mx-auto">
+        <form id="bead-form" enctype="multipart/form-data" class="space-y-6">
+          <!-- Upload Area -->
+          <div class="upload-area border-2 border-dashed border-primary/30 rounded-2xl p-8 text-center hover:border-primary/50 transition-colors cursor-pointer">
+            <input type="file" id="image-input" accept="image/*" required class="hidden">
+            <label for="image-input" class="cursor-pointer">
+              <div class="upload-placeholder">
+                <div class="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-xl mx-auto mb-4 flex items-center justify-center">
+                  <span class="text-white text-xl">📷</span>
+                </div>
+                <h3 class="text-lg font-bold text-dark mb-2">Upload Bead Photo</h3>
+                <p class="text-text-light mb-4">Click here or drag and drop your image</p>
+                <div class="btn btn-primary">
+                  Choose File
+                </div>
+              </div>
+            </label>
+          </div>
+          
+          <!-- Preview Area -->
+          <div id="preview-area" class="hidden">
+            <div class="relative">
+              <img id="preview-image" alt="Uploaded bead" class="w-full max-h-64 object-contain rounded-xl bg-gray-50">
+              <button type="button" id="remove-image" class="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-600 transition-colors">
+                ×
+              </button>
+            </div>
+          </div>
+          
+          <!-- Submit Button -->
+          <button type="submit" id="submit-btn" class="btn btn-primary w-full text-lg py-4 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+            <span id="submit-text">Upload a Photo First</span>
+            <div id="loading-spinner" class="hidden ml-2 spinner"></div>
+          </button>
+        </form>
+        
+        <!-- Results -->
+        <div id="results" class="hidden mt-8 pt-8 border-t border-gray-100">
+          <h3 class="text-2xl font-bold text-dark mb-6">Analysis Results</h3>
+          
+          <div id="ai-description" class="mb-6">
+            <!-- AI description will be inserted here -->
+          </div>
+          
+          <div id="bead-suggestions">
+            <!-- Bead suggestions will be inserted here -->
+          </div>
+        </div>
+      </div>
+      
+      <!-- Tips Section -->
+      <div class="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="card text-center">
+          <div class="w-12 h-12 bg-gradient-to-br from-secondary to-accent rounded-xl mx-auto mb-4 flex items-center justify-center">
+            <span class="text-xl text-dark">📸</span>
+          </div>
+          <h3 class="font-bold text-dark mb-2">Clear Photos</h3>
+          <p class="text-sm text-text-light">Take clear, well-lit photos showing the bead's details and surface texture.</p>
+        </div>
+        
+        <div class="card text-center">
+          <div class="w-12 h-12 bg-gradient-to-br from-accent to-primary rounded-xl mx-auto mb-4 flex items-center justify-center">
+            <span class="text-xl text-white">🕰️</span>
+          </div>
+          <h3 class="font-bold text-dark mb-2">Multiple Angles</h3>
+          <p class="text-sm text-text-light">For best results, try uploading photos from different angles if the first attempt isn't accurate.</p>
+        </div>
+        
+        <div class="card text-center">
+          <div class="w-12 h-12 bg-gradient-to-br from-primary to-dark rounded-xl mx-auto mb-4 flex items-center justify-center">
+            <span class="text-xl text-white">👥</span>
+          </div>
+          <h3 class="font-bold text-dark mb-2">Community Help</h3>
+          <p class="text-sm text-text-light">If our AI can't identify your bead, our community experts are here to help!</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .upload-area:hover .upload-placeholder {
+    transform: scale(1.02);
+    transition: transform 0.2s ease;
+  }
+</style>
+
+<script>
+  const form = document.getElementById('bead-form') as HTMLFormElement;
+  const imageInput = document.getElementById('image-input') as HTMLInputElement;
+  const previewArea = document.getElementById('preview-area') as HTMLElement;
+  const previewImage = document.getElementById('preview-image') as HTMLImageElement;
+  const removeImageBtn = document.getElementById('remove-image') as HTMLButtonElement;
+  const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
+  const submitText = document.getElementById('submit-text') as HTMLElement;
+  const loadingSpinner = document.getElementById('loading-spinner') as HTMLElement;
+  const results = document.getElementById('results') as HTMLElement;
+  
+  // File upload handling
+  imageInput.addEventListener('change', function(e) {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select a valid image file.');
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Please select an image smaller than 5MB.');
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        previewImage.src = e.target?.result as string;
+        previewArea.classList.remove('hidden');
+        submitBtn.disabled = false;
+        submitText.textContent = 'Identify This Bead';
+        results.classList.add('hidden');
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+  
+  // Remove image
+  removeImageBtn.addEventListener('click', function() {
+    imageInput.value = '';
+    previewArea.classList.add('hidden');
+    submitBtn.disabled = true;
+    submitText.textContent = 'Upload a Photo First';
+    results.classList.add('hidden');
+  });
+  
+  // Drag and drop functionality
+  const uploadArea = document.querySelector('.upload-area') as HTMLElement;
+  
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    uploadArea.addEventListener(eventName, preventDefaults, false);
+  });
+  
+  function preventDefaults(e: Event) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  
+  ['dragenter', 'dragover'].forEach(eventName => {
+    uploadArea.addEventListener(eventName, highlight, false);
+  });
+  
+  ['dragleave', 'drop'].forEach(eventName => {
+    uploadArea.addEventListener(eventName, unhighlight, false);
+  });
+  
+  function highlight() {
+    uploadArea.classList.add('border-primary');
+  }
+  
+  function unhighlight() {
+    uploadArea.classList.remove('border-primary');
+  }
+  
+  uploadArea.addEventListener('drop', handleDrop, false);
+  
+  function handleDrop(e: DragEvent) {
+    const dt = e.dataTransfer;
+    const files = dt?.files;
+    
+    if (files && files.length > 0) {
+      imageInput.files = files;
+      imageInput.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+  
+  // Form submission
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    if (!imageInput.files || imageInput.files.length === 0) {
+      alert('Please select an image first.');
+      return;
+    }
+    
+    // Show loading state
+    submitBtn.disabled = true;
+    submitText.textContent = 'Analysing...';
+    loadingSpinner.classList.remove('hidden');
+    
+    const formData = new FormData();
+    formData.append('image', imageInput.files[0]);
+    
+    try {
+      // TODO: Replace with actual API endpoint
+      // For now, simulate the API call
+      await simulateAPICall();
+      
+      // Show mock results
+      showMockResults();
+      
+    } catch (error) {
+      console.error('Error identifying bead:', error);
+      alert('Sorry, there was an error identifying your bead. Please try again.');
+    } finally {
+      // Reset button state
+      submitBtn.disabled = false;
+      submitText.textContent = 'Identify This Bead';
+      loadingSpinner.classList.add('hidden');
+    }
+  });
+  
+  // Simulate API call (remove when real API is implemented)
+  function simulateAPICall(): Promise<void> {
+    return new Promise(resolve => {
+      setTimeout(resolve, 2000);
+    });
+  }
+  
+  // Show mock results (replace with real results)
+  function showMockResults() {
+    const aiDescription = document.getElementById('ai-description')!;
+    const beadSuggestions = document.getElementById('bead-suggestions')!;
+    
+    aiDescription.innerHTML = `
+      <div class="bg-accent/50 rounded-xl p-4 mb-4">
+        <h4 class="font-bold text-dark mb-2">🤖 AI Analysis</h4>
+        <p class="text-text">I can see a round, translucent glass bead with what appears to be a swirled pattern in shades of blue and white. The surface has a smooth, polished finish typical of Venetian glass beads.</p>
+      </div>
+    `;
+    
+    beadSuggestions.innerHTML = `
+      <h4 class="font-bold text-dark mb-4">Possible Matches</h4>
+      <div class="space-y-4">
+        <div class="card">
+          <div class="flex items-start space-x-4">
+            <div class="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center flex-shrink-0">
+              <span class="text-white text-xl">💎</span>
+            </div>
+            <div class="flex-grow">
+              <h5 class="font-bold text-dark mb-1">
+                <a href="/bead-types/venetian-glass" class="hover:text-primary transition-colors">
+                  Venetian Glass Beads
+                </a>
+              </h5>
+              <p class="text-sm text-text-light mb-2">Traditional Italian glass beads with distinctive swirled patterns</p>
+              <div class="flex items-center space-x-2">
+                <span class="tag text-xs">Glass</span>
+                <span class="tag text-xs">Venetian</span>
+                <span class="tag text-xs">Blue</span>
+              </div>
+              <p class="text-xs text-primary font-semibold mt-2">95% confidence</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="flex items-start space-x-4">
+            <div class="w-16 h-16 bg-gradient-to-br from-secondary to-accent rounded-xl flex items-center justify-center flex-shrink-0">
+              <span class="text-dark text-xl">💎</span>
+            </div>
+            <div class="flex-grow">
+              <h5 class="font-bold text-dark mb-1">
+                <a href="/bead-types/lampwork" class="hover:text-primary transition-colors">
+                  Lampwork Beads
+                </a>
+              </h5>
+              <p class="text-sm text-text-light mb-2">Handcrafted glass beads made using a torch or lamp</p>
+              <div class="flex items-center space-x-2">
+                <span class="tag text-xs">Glass</span>
+                <span class="tag text-xs">Handmade</span>
+                <span class="tag text-xs">Artisan</span>
+              </div>
+              <p class="text-xs text-primary font-semibold mt-2">78% confidence</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="mt-6 p-4 bg-secondary/20 rounded-xl">
+        <p class="text-sm text-text-light text-center">
+          💬 Not quite right? <a href="/contact" class="text-primary font-semibold hover:underline">Contact our experts</a> for help identifying your bead.
+        </p>
+      </div>
+    `;
+    
+    results.classList.remove('hidden');
+    results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+</script>

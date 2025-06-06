@@ -1,0 +1,162 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import { getCollection } from 'astro:content';
+
+// Get featured content
+const beadTypes = await getCollection('bead-types', ({ data }) => data.featured && data.published);
+const tutorials = await getCollection('tutorials', ({ data }) => data.featured && data.published);
+const posts = await getCollection('posts', ({ data }) => data.featured && data.published);
+---
+
+<Layout title="Bead Fanatic - Your Ultimate Bead & Jewellery Making Hub">
+  <!-- Hero Section -->
+  <section class="hero-pattern relative py-20 lg:py-32">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center">
+        <div class="inline-block mb-6">
+          <div class="flex items-center justify-center w-20 h-20 bg-gradient-to-br from-primary to-secondary rounded-3xl bounce-in">
+            <span class="text-white text-4xl">💎</span>
+          </div>
+        </div>
+        
+        <h1 class="text-4xl sm:text-6xl lg:text-7xl font-black text-dark mb-6 fade-in">
+          Welcome to <span class="text-primary">Bead Fanatic</span>
+        </h1>
+        
+        <p class="text-xl sm:text-2xl text-text-light max-w-3xl mx-auto mb-8 fade-in">
+          Your ultimate destination for bead identification, jewellery making tutorials, 
+          and connecting with the best suppliers. Join our passionate community of creators!
+        </p>
+        
+        <div class="flex flex-col sm:flex-row gap-4 justify-center items-center fade-in">
+          <a href="/identify" class="btn btn-primary text-lg px-8 py-4">
+            🔍 Identify a Bead
+          </a>
+          <a href="/bead-types" class="btn btn-secondary text-lg px-8 py-4">
+            📚 Browse Bead Types
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <!-- Features Section -->
+  <section class="py-20 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-16">
+        <h2 class="text-3xl sm:text-4xl font-black text-dark mb-4">
+          Everything You Need for Bead Crafting
+        </h2>
+        <p class="text-lg text-text-light max-w-2xl mx-auto">
+          From identification to inspiration, we've got you covered with comprehensive resources.
+        </p>
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <!-- Feature 1 -->
+        <div class="card text-center hover:scale-105 transition-transform">
+          <div class="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-2xl mx-auto mb-4 flex items-center justify-center">
+            <span class="text-2xl text-white">🔍</span>
+          </div>
+          <h3 class="text-xl font-bold text-dark mb-2">Bead Identifier</h3>
+          <p class="text-text-light">Upload a photo and let our AI help identify your mystery beads with detailed information.</p>
+        </div>
+        
+        <!-- Feature 2 -->
+        <div class="card text-center hover:scale-105 transition-transform">
+          <div class="w-16 h-16 bg-gradient-to-br from-secondary to-accent rounded-2xl mx-auto mb-4 flex items-center justify-center">
+            <span class="text-2xl text-dark">📚</span>
+          </div>
+          <h3 class="text-xl font-bold text-dark mb-2">Comprehensive Guide</h3>
+          <p class="text-text-light">Explore hundreds of bead types with detailed descriptions, origins, and usage tips.</p>
+        </div>
+        
+        <!-- Feature 3 -->
+        <div class="card text-center hover:scale-105 transition-transform">
+          <div class="w-16 h-16 bg-gradient-to-br from-accent to-primary rounded-2xl mx-auto mb-4 flex items-center justify-center">
+            <span class="text-2xl text-white">🎓</span>
+          </div>
+          <h3 class="text-xl font-bold text-dark mb-2">Expert Tutorials</h3>
+          <p class="text-text-light">Learn new techniques with step-by-step tutorials from beginner to advanced levels.</p>
+        </div>
+        
+        <!-- Feature 4 -->
+        <div class="card text-center hover:scale-105 transition-transform">
+          <div class="w-16 h-16 bg-gradient-to-br from-primary to-dark rounded-2xl mx-auto mb-4 flex items-center justify-center">
+            <span class="text-2xl text-white">🏢</span>
+          </div>
+          <h3 class="text-xl font-bold text-dark mb-2">Trusted Suppliers</h3>
+          <p class="text-text-light">Discover verified suppliers and find the best sources for all your beading needs.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <!-- Featured Bead Types -->
+  {beadTypes.length > 0 && (
+    <section class="py-20 bg-accent/30">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16">
+          <h2 class="text-3xl sm:text-4xl font-black text-dark mb-4">
+            Popular Bead Types
+          </h2>
+          <p class="text-lg text-text-light max-w-2xl mx-auto">
+            Discover the most sought-after beads in our community.
+          </p>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {beadTypes.slice(0, 6).map((bead) => (
+            <article class="card hover:scale-105 transition-transform">
+              <div class="aspect-video bg-gradient-to-br from-secondary to-accent rounded-xl mb-4 flex items-center justify-center">
+                <span class="text-4xl">💎</span>
+              </div>
+              <h3 class="text-xl font-bold text-dark mb-2">
+                <a href={`/bead-types/${bead.slug}`} class="hover:text-primary transition-colors">
+                  {bead.data.title}
+                </a>
+              </h3>
+              <p class="text-text-light mb-4">{bead.data.description}</p>
+              <div class="flex flex-wrap gap-2 mb-4">
+                {bead.data.tags.slice(0, 3).map(tag => (
+                  <span class="tag text-xs">{tag}</span>
+                ))}
+              </div>
+              <a href={`/bead-types/${bead.slug}`} class="btn btn-outline btn-sm">
+                Learn More
+              </a>
+            </article>
+          ))}
+        </div>
+        
+        <div class="text-center mt-12">
+          <a href="/bead-types" class="btn btn-primary text-lg px-8 py-4">
+            Explore All Bead Types
+          </a>
+        </div>
+      </div>
+    </section>
+  )}
+  
+  <!-- CTA Section -->
+  <section class="py-20 bg-gradient-to-br from-primary via-secondary to-accent relative overflow-hidden">
+    <div class="absolute inset-0 bg-white/10"></div>
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
+      <h2 class="text-3xl sm:text-4xl font-black text-white mb-6">
+        Ready to Start Your Beading Journey?
+      </h2>
+      <p class="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
+        Join thousands of bead enthusiasts and jewellery makers who trust Bead Fanatic 
+        for their crafting needs.
+      </p>
+      <div class="flex flex-col sm:flex-row gap-4 justify-center">
+        <a href="/identify" class="btn bg-white text-primary hover:bg-accent transition-colors text-lg px-8 py-4">
+          Try Bead Identifier
+        </a>
+        <a href="/tutorials" class="btn btn-outline border-white text-white hover:bg-white hover:text-primary text-lg px-8 py-4">
+          View Tutorials
+        </a>
+      </div>
+    </div>
+  </section>
+</Layout>
