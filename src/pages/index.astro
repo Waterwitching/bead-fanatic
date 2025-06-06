@@ -4,8 +4,6 @@ import { getCollection } from 'astro:content';
 
 // Get featured content
 const beadTypes = await getCollection('bead-types', ({ data }) => data.featured && data.published);
-const tutorials = await getCollection('tutorials', ({ data }) => data.featured && data.published);
-const posts = await getCollection('posts', ({ data }) => data.featured && data.published);
 ---
 
 <Layout title="Bead Fanatic - Your Ultimate Bead & Jewellery Making Hub">

@@ -1,5 +1,5 @@
 ---
-import { Icon } from 'astro-icon/components';
+// No imports needed for now
 ---
 
 <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-primary/10">
@@ -140,7 +140,7 @@ import { Icon } from 'astro-icon/components';
   });
   
   // Basic search functionality (to be enhanced)
-  let searchTimeout: number;
+  let searchTimeout: ReturnType<typeof setTimeout>;
   searchInput?.addEventListener('input', (e) => {
     clearTimeout(searchTimeout);
     const query = (e.target as HTMLInputElement).value;
@@ -152,9 +152,8 @@ import { Icon } from 'astro-icon/components';
     }
     
     searchTimeout = setTimeout(() => {
-      // TODO: Implement actual search
-      document.getElementById('search-results')!.innerHTML = 
-        '<p class="text-text-light text-center py-8">Search coming soon...</p>';
+      // Redirect to search page
+      window.location.href = `/search?q=${encodeURIComponent(query)}`;
     }, 300);
   });
 </script>

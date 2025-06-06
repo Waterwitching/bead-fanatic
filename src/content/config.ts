@@ -81,6 +81,7 @@ const suppliers = defineCollection({
     tags: z.array(z.string()),
     verified: z.boolean().default(false),
     featured: z.boolean().default(false),
+    published: z.boolean().default(true),
     lastUpdated: z.date()
   })
 });

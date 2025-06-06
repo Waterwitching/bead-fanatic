@@ -1,10 +1,10 @@
-export interface Env {
+interface Env {
   HF_API_TOKEN: string;
   BEAD_DATA: KVNamespace;
 }
 
 export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env): Promise<Response> {
     // Handle CORS
     const corsHeaders = {
       'Access-Control-Allow-Origin': 'https://beadfanatic.co.uk',
@@ -84,7 +84,7 @@ export default {
       const analysis = analyzeDescription(description);
       
       // Find matching beads based on analysis
-      const suggestions = await findMatchingBeads(analysis, env.BEAD_DATA);
+      const suggestions = await findMatchingBeads(analysis);
 
       return new Response(JSON.stringify({
         description,
@@ -176,7 +176,7 @@ function analyzeDescription(description: string) {
   return analysis;
 }
 
-async function findMatchingBeads(analysis: any, kvStore: KVNamespace) {
+async function findMatchingBeads(analysis: any) {
   // This would normally query your bead database
   // For now, return mock suggestions based on analysis
   

@@ -2,7 +2,7 @@
 import Layout from '@/layouts/Layout.astro';
 import { getCollection } from 'astro:content';
 
-const suppliers = await getCollection('suppliers', ({ data }) => data.published !== false);
+const suppliers = await getCollection('suppliers', ({ data }) => data.published);
 
 // Group by location
 const locationGroups = suppliers.reduce((acc, supplier) => {
