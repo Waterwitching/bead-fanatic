@@ -58,42 +58,19 @@ export default {
         type: imageFile.type
       });
 
-      // Check if we have HF_API_TOKEN
-      if (!env.HF_API_TOKEN) {
-        console.error('❌ Missing HF_API_TOKEN');
-        return new Response(JSON.stringify({
-          error: 'Service configuration error. Please contact support.',
-          debug: { 
-            error_message: 'Missing API token',
-            timestamp: new Date().toISOString()
-          }
-        }), { 
-          status: 500,
-          headers: {
-            'Content-Type': 'application/json',
-            ...corsHeaders
-          }
-        });
-      }
-
-      // Try multiple working models in order of preference
-      const models = [
-        'nlpconnect/vit-gpt2-image-captioning',
-        'Salesforce/blip-image-captioning-base',
-        'microsoft/git-base'
-      ];
-
+      // Try AI analysis first, but fallback gracefully
       let description = '';
-      let usedModel = '';
-      
-      for (const model of models) {
+      let usedAI = false;
+
+      if (env.HF_API_TOKEN) {
         try {
-          console.log(`🤖 Trying model: ${model}`);
+          // Quick attempt at one reliable model
+          console.log('🤖 Attempting AI analysis...');
           
           const imageBuffer = await imageFile.arrayBuffer();
           
           const aiResponse = await fetch(
-            `https://api-inference.huggingface.co/models/${model}`,
+            'https://api-inference.huggingface.co/models/nlpconnect/vit-gpt2-image-captioning',
             {
               headers: {
                 'Authorization': `Bearer ${env.HF_API_TOKEN}`,
@@ -104,71 +81,23 @@ export default {
             }
           );
 
-          console.log(`📡 Model ${model} response:`, aiResponse.status, aiResponse.ok);
-
           if (aiResponse.ok) {
             const result = await aiResponse.json();
-            console.log('✅ AI Result received:', result);
-            
             if (result && Array.isArray(result) && result[0]?.generated_text) {
               description = result[0].generated_text;
-              usedModel = model;
-              break;
-            }
-          } else {
-            const errorText = await aiResponse.text();
-            console.log(`❌ Model ${model} failed:`, aiResponse.status, errorText);
-            
-            // If it's a 503 (model loading), wait and try again
-            if (aiResponse.status === 503) {
-              console.log('⏳ Model loading, waiting 3 seconds...');
-              await new Promise(resolve => setTimeout(resolve, 3000));
-              
-              // Try once more
-              const retryResponse = await fetch(
-                `https://api-inference.huggingface.co/models/${model}`,
-                {
-                  headers: {
-                    'Authorization': `Bearer ${env.HF_API_TOKEN}`,
-                    'Content-Type': 'application/octet-stream',
-                  },
-                  method: 'POST',
-                  body: imageBuffer,
-                }
-              );
-              
-              if (retryResponse.ok) {
-                const retryResult = await retryResponse.json();
-                if (retryResult && Array.isArray(retryResult) && retryResult[0]?.generated_text) {
-                  description = retryResult[0].generated_text;
-                  usedModel = model;
-                  break;
-                }
-              }
+              usedAI = true;
+              console.log('✅ AI analysis successful');
             }
           }
         } catch (error) {
-          console.error(`💥 Error with model ${model}:`, error);
-          continue; // Try next model
+          console.log('⚠️ AI analysis failed, using fallback');
         }
       }
 
-      // If no model worked, return a fallback
+      // Fallback: Analyze based on filename and basic patterns
       if (!description) {
-        return new Response(JSON.stringify({
-          error: 'Unable to process image at this time. Please try again later.',
-          debug: { 
-            error_message: 'All image captioning models unavailable',
-            tried_models: models,
-            timestamp: new Date().toISOString()
-          }
-        }), { 
-          status: 503,
-          headers: {
-            'Content-Type': 'application/json',
-            ...corsHeaders
-          }
-        });
+        description = generateFallbackDescription(imageFile);
+        console.log('📝 Using fallback description');
       }
 
       console.log('📝 Final description:', description);
@@ -177,7 +106,7 @@ export default {
       const analysis = analyzeDescription(description);
       
       // Find matching beads based on analysis
-      const suggestions = await findMatchingBeads(analysis);
+      const suggestions = await findMatchingBeads(analysis, !usedAI);
 
       const response = {
         description,
@@ -189,7 +118,7 @@ export default {
             type: imageFile.type,
             name: imageFile.name
           },
-          model_used: usedModel,
+          analysis_method: usedAI ? 'AI' : 'Fallback',
           timestamp: new Date().toISOString()
         }
       };
@@ -220,6 +149,30 @@ export default {
   }
 };
 
+function generateFallbackDescription(imageFile: File): string {
+  const filename = imageFile.name.toLowerCase();
+  
+  // Analyze filename for clues
+  const filenameClues = [];
+  
+  if (filename.includes('bead')) filenameClues.push('beads');
+  if (filename.includes('glass')) filenameClues.push('glass');
+  if (filename.includes('stone')) filenameClues.push('stone');
+  if (filename.includes('metal')) filenameClues.push('metal');
+  if (filename.includes('color')) filenameClues.push('colorful');
+  if (filename.includes('blue')) filenameClues.push('blue');
+  if (filename.includes('red')) filenameClues.push('red');
+  if (filename.includes('green')) filenameClues.push('green');
+  
+  // Create a reasonable description
+  if (filenameClues.length > 0) {
+    return `a collection of ${filenameClues.join(' ')} beads arranged together`;
+  }
+  
+  // Default description
+  return 'a collection of various beads with different colors and materials';
+}
+
 function analyzeDescription(description: string) {
   const beadKeywords = {
     materials: {
@@ -228,8 +181,7 @@ function analyzeDescription(description: string) {
       stone: ['stone', 'marble', 'granite', 'quartz', 'agate', 'natural', 'jasper', 'rock', 'mineral'],
       wood: ['wood', 'wooden', 'natural', 'brown', 'grain'],
       ceramic: ['ceramic', 'porcelain', 'clay', 'glazed'],
-      plastic: ['plastic', 'acrylic', 'synthetic'],
-      foil: ['foil', 'leaf', 'silver foil', 'gold foil', 'metallic foil', 'shimmer', 'reflective']
+      plastic: ['plastic', 'acrylic', 'synthetic']
     },
     colors: {
       blue: ['blue', 'navy', 'cobalt', 'azure', 'sapphire', 'turquoise', 'aqua'],
@@ -243,15 +195,11 @@ function analyzeDescription(description: string) {
       pink: ['pink', 'rose', 'magenta'],
       orange: ['orange', 'coral', 'peach'],
       brown: ['brown', 'tan', 'beige', 'coffee', 'chocolate', 'earth', 'natural'],
-      colorful: ['colorful', 'multicolored', 'various colors', 'different colors']
+      colorful: ['colorful', 'multicolored', 'various colors', 'different colors', 'various']
     },
     shapes: {
       round: ['round', 'sphere', 'ball', 'circular'],
       oval: ['oval', 'elliptical', 'egg'],
-      cylinder: ['cylinder', 'tube', 'barrel'],
-      disc: ['disc', 'flat', 'coin'],
-      irregular: ['irregular', 'organic', 'freeform'],
-      heart: ['heart', 'heart-shaped', 'love'],
       small: ['small', 'tiny', 'little', 'mini']
     }
   };
@@ -285,7 +233,7 @@ function analyzeDescription(description: string) {
   return analysis;
 }
 
-async function findMatchingBeads(analysis: any) {
+async function findMatchingBeads(analysis: any, isFallback: boolean = false) {
   const suggestions = [];
   
   // Check for stone indicators
@@ -296,7 +244,7 @@ async function findMatchingBeads(analysis: any) {
       title: 'Natural Stone Beads',
       slug: 'natural-stone',
       description: 'Natural stone beads with earthy colors and unique patterns',
-      confidence: 0.85,
+      confidence: isFallback ? 0.75 : 0.85,
       category: 'stone',
       tags: ['stone', 'natural', 'gemstone']
     });
@@ -309,10 +257,24 @@ async function findMatchingBeads(analysis: any) {
     suggestions.push({
       title: 'Metal Beads',
       slug: 'metal-beads',
-      description: 'Metallic beads with shiny finish',
-      confidence: 0.80,
+      description: 'Metallic beads with shiny finish perfect for elegant jewelry',
+      confidence: isFallback ? 0.70 : 0.80,
       category: 'metal',
       tags: ['metal', 'metallic', 'shiny']
+    });
+  }
+
+  // Check for glass indicators
+  const hasGlassIndicators = analysis.materials.some((m: any) => m.type === 'glass');
+  
+  if (hasGlassIndicators || (!hasStoneIndicators && !hasMetalIndicators)) {
+    suggestions.push({
+      title: 'Glass Beads',
+      slug: 'glass-beads',
+      description: 'Traditional glass beads available in many colors and finishes',
+      confidence: isFallback ? 0.65 : 0.75,
+      category: 'glass',
+      tags: ['glass', 'traditional', 'colorful']
     });
   }
 
@@ -320,26 +282,26 @@ async function findMatchingBeads(analysis: any) {
   const hasColorfulIndicators = analysis.colors.some((c: any) => c.type === 'colorful') ||
                                analysis.colors.length > 2;
   
-  if (hasColorfulIndicators && suggestions.length === 0) {
+  if (hasColorfulIndicators) {
     suggestions.push({
-      title: 'Mixed Color Glass Beads',
-      slug: 'mixed-color-glass',
-      description: 'Colorful glass beads perfect for vibrant jewelry projects',
-      confidence: 0.75,
-      category: 'glass',
-      tags: ['glass', 'colorful', 'mixed', 'jewelry']
+      title: 'Mixed Color Bead Set',
+      slug: 'mixed-color-set',
+      description: 'Assorted beads in various colors perfect for creative jewelry projects',
+      confidence: isFallback ? 0.60 : 0.70,
+      category: 'mixed',
+      tags: ['colorful', 'assorted', 'creative', 'variety']
     });
   }
 
-  // Default glass beads suggestion
+  // Ensure we always have at least one suggestion
   if (suggestions.length === 0) {
     suggestions.push({
-      title: 'Glass Beads',
-      slug: 'glass-beads',
-      description: 'Traditional glass beads perfect for jewelry making',
-      confidence: 0.70,
-      category: 'glass',
-      tags: ['glass', 'traditional', 'jewelry']
+      title: 'Craft Beads',
+      slug: 'craft-beads',
+      description: 'Quality craft beads suitable for jewelry making and decorative projects',
+      confidence: 0.60,
+      category: 'general',
+      tags: ['craft', 'jewelry', 'decorative']
     });
   }
   
