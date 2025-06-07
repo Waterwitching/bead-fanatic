@@ -72,6 +72,11 @@ import Layout from '@/layouts/Layout.astro';
           <div id="bead-suggestions">
             <!-- Bead suggestions will be inserted here -->
           </div>
+          
+          <!-- Error message area -->
+          <div id="error-message" class="hidden mt-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+            <p class="text-red-700 text-sm"></p>
+          </div>
         </div>
       </div>
       
@@ -87,7 +92,7 @@ import Layout from '@/layouts/Layout.astro';
         
         <div class="card text-center">
           <div class="w-12 h-12 bg-gradient-to-br from-accent to-primary rounded-xl mx-auto mb-4 flex items-center justify-center">
-            <span class="text-xl text-white">🕰️</span>
+            <span class="text-xl text-white">🔄️</span>
           </div>
           <h3 class="font-bold text-dark mb-2">Multiple Angles</h3>
           <p class="text-sm text-text-light">For best results, try uploading photos from different angles if the first attempt isn't accurate.</p>
@@ -211,23 +216,35 @@ import Layout from '@/layouts/Layout.astro';
     
     // Show loading state
     submitBtn.disabled = true;
-    submitText.textContent = 'Analysing...';
+    submitText.textContent = 'Analyzing...';
     loadingSpinner.classList.remove('hidden');
     
     const formData = new FormData();
     formData.append('image', imageInput.files[0]);
     
     try {
-      // TODO: Replace with actual API endpoint
-      // For now, simulate the API call
-      await simulateAPICall();
+      // Call the actual AI worker API
+      const response = await fetch('/api/identify-bead', {
+        method: 'POST',
+        body: formData
+      });
       
-      // Show mock results
-      showMockResults();
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      
+      // Show real results from AI
+      showResults(data);
       
     } catch (error) {
       console.error('Error identifying bead:', error);
-      alert('Sorry, there was an error identifying your bead. Please try again.');
+      showError('Sorry, there was an error identifying your bead. Please try again.');
     } finally {
       // Reset button state
       submitBtn.disabled = false;
@@ -236,80 +253,77 @@ import Layout from '@/layouts/Layout.astro';
     }
   });
   
-  // Simulate API call (remove when real API is implemented)
-  function simulateAPICall(): Promise<void> {
-    return new Promise(resolve => {
-      setTimeout(resolve, 2000);
-    });
-  }
-  
-  // Show mock results (replace with real results)
-  function showMockResults() {
+  // Show real AI results
+  function showResults(data: any) {
     const aiDescription = document.getElementById('ai-description')!;
     const beadSuggestions = document.getElementById('bead-suggestions')!;
+    const errorMessage = document.getElementById('error-message')!;
     
+    // Hide any previous error
+    errorMessage.classList.add('hidden');
+    
+    // Display AI description
     aiDescription.innerHTML = `
       <div class="bg-accent/50 rounded-xl p-4 mb-4">
         <h4 class="font-bold text-dark mb-2">🤖 AI Analysis</h4>
-        <p class="text-text">I can see a round, translucent glass bead with what appears to be a swirled pattern in shades of blue and white. The surface has a smooth, polished finish typical of Venetian glass beads.</p>
+        <p class="text-text">${data.description}</p>
       </div>
     `;
     
-    beadSuggestions.innerHTML = `
-      <h4 class="font-bold text-dark mb-4">Possible Matches</h4>
-      <div class="space-y-4">
+    // Display bead suggestions
+    if (data.suggestions && data.suggestions.length > 0) {
+      const suggestionsHTML = data.suggestions.map((suggestion: any) => `
         <div class="card">
           <div class="flex items-start space-x-4">
             <div class="w-16 h-16 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center flex-shrink-0">
               <span class="text-white text-xl">💎</span>
             </div>
             <div class="flex-grow">
-              <h5 class="font-bold text-dark mb-1">
-                <a href="/bead-types/venetian-glass" class="hover:text-primary transition-colors">
-                  Venetian Glass Beads
-                </a>
-              </h5>
-              <p class="text-sm text-text-light mb-2">Traditional Italian glass beads with distinctive swirled patterns</p>
-              <div class="flex items-center space-x-2">
-                <span class="tag text-xs">Glass</span>
-                <span class="tag text-xs">Venetian</span>
-                <span class="tag text-xs">Blue</span>
+              <h5 class="font-bold text-dark mb-1">${suggestion.title}</h5>
+              <p class="text-sm text-text-light mb-2">${suggestion.description}</p>
+              <div class="flex items-center space-x-2 mb-2">
+                ${suggestion.tags.map((tag: string) => `<span class="tag text-xs">${tag}</span>`).join('')}
               </div>
-              <p class="text-xs text-primary font-semibold mt-2">95% confidence</p>
+              <p class="text-xs text-primary font-semibold">${Math.round(suggestion.confidence * 100)}% confidence</p>
             </div>
           </div>
+        </div>
+      `).join('');
+      
+      beadSuggestions.innerHTML = `
+        <h4 class="font-bold text-dark mb-4">Possible Matches</h4>
+        <div class="space-y-4">
+          ${suggestionsHTML}
         </div>
         
-        <div class="card">
-          <div class="flex items-start space-x-4">
-            <div class="w-16 h-16 bg-gradient-to-br from-secondary to-accent rounded-xl flex items-center justify-center flex-shrink-0">
-              <span class="text-dark text-xl">💎</span>
-            </div>
-            <div class="flex-grow">
-              <h5 class="font-bold text-dark mb-1">
-                <a href="/bead-types/lampwork" class="hover:text-primary transition-colors">
-                  Lampwork Beads
-                </a>
-              </h5>
-              <p class="text-sm text-text-light mb-2">Handcrafted glass beads made using a torch or lamp</p>
-              <div class="flex items-center space-x-2">
-                <span class="tag text-xs">Glass</span>
-                <span class="tag text-xs">Handmade</span>
-                <span class="tag text-xs">Artisan</span>
-              </div>
-              <p class="text-xs text-primary font-semibold mt-2">78% confidence</p>
-            </div>
-          </div>
+        <div class="mt-6 p-4 bg-secondary/20 rounded-xl">
+          <p class="text-sm text-text-light text-center">
+            🤔 Not quite right? <a href="/contact" class="text-primary font-semibold hover:underline">Contact our experts</a> for help identifying your bead.
+          </p>
         </div>
-      </div>
-      
-      <div class="mt-6 p-4 bg-secondary/20 rounded-xl">
-        <p class="text-sm text-text-light text-center">
-          💬 Not quite right? <a href="/contact" class="text-primary font-semibold hover:underline">Contact our experts</a> for help identifying your bead.
-        </p>
-      </div>
-    `;
+      `;
+    } else {
+      beadSuggestions.innerHTML = `
+        <h4 class="font-bold text-dark mb-4">No Matches Found</h4>
+        <div class="p-4 bg-secondary/20 rounded-xl">
+          <p class="text-sm text-text-light text-center">
+            Our AI couldn't find specific matches for your bead. <a href="/contact" class="text-primary font-semibold hover:underline">Contact our experts</a> for personalized help!
+          </p>
+        </div>
+      `;
+    }
     
+    results.classList.remove('hidden');
+    results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  
+  // Show error message
+  function showError(message: string) {
+    const errorMessage = document.getElementById('error-message')!;
+    const errorText = errorMessage.querySelector('p')!;
+    
+    errorText.textContent = message;
+    errorMessage.classList.remove('hidden');
     results.classList.remove('hidden');
     results.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
