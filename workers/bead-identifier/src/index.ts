@@ -120,29 +120,45 @@ function analyzeDescription(description: string) {
       stone: ['stone', 'marble', 'granite', 'quartz', 'agate', 'natural'],
       wood: ['wood', 'wooden', 'natural', 'brown', 'grain'],
       ceramic: ['ceramic', 'porcelain', 'clay', 'glazed'],
-      plastic: ['plastic', 'acrylic', 'synthetic']
+      plastic: ['plastic', 'acrylic', 'synthetic'],
+      foil: ['foil', 'leaf', 'silver foil', 'gold foil', 'metallic foil', 'shimmer', 'reflective']
     },
     types: {
       venetian: ['venetian', 'murano', 'italy', 'italian', 'gold leaf', 'aventurine'],
       seed: ['seed', 'small', 'tiny', 'round', 'uniform'],
       czech: ['czech', 'bohemian', 'fire polished'],
       pearl: ['pearl', 'lustrous', 'round', 'white', 'cream', 'nacre'],
-      lampwork: ['lampwork', 'handmade', 'artisan', 'swirl', 'pattern']
+      lampwork: ['lampwork', 'handmade', 'artisan', 'swirl', 'pattern', 'foil', 'silver foil', 'gold foil'],
+      millefiori: ['millefiori', 'thousand flowers', 'cane', 'mosaic'],
+      dichroic: ['dichroic', 'color changing', 'iridescent', 'rainbow']
     },
     shapes: {
       round: ['round', 'sphere', 'ball', 'circular'],
       oval: ['oval', 'elliptical', 'egg'],
       cylinder: ['cylinder', 'tube', 'barrel'],
       disc: ['disc', 'flat', 'coin'],
-      irregular: ['irregular', 'organic', 'freeform']
+      irregular: ['irregular', 'organic', 'freeform'],
+      heart: ['heart', 'heart-shaped', 'love'],
+      drop: ['drop', 'teardrop', 'pear'],
+      bicone: ['bicone', 'diamond', 'faceted']
     },
     colors: {
-      blue: ['blue', 'navy', 'cobalt', 'azure', 'sapphire'],
+      blue: ['blue', 'navy', 'cobalt', 'azure', 'sapphire', 'turquoise', 'aqua'],
       red: ['red', 'crimson', 'ruby', 'burgundy'],
       green: ['green', 'emerald', 'jade', 'olive'],
       yellow: ['yellow', 'gold', 'amber', 'citrine'],
       purple: ['purple', 'violet', 'amethyst', 'lavender'],
-      clear: ['clear', 'transparent', 'crystal']
+      clear: ['clear', 'transparent', 'crystal'],
+      black: ['black', 'ebony', 'onyx'],
+      white: ['white', 'pearl', 'ivory', 'cream'],
+      pink: ['pink', 'rose', 'magenta'],
+      orange: ['orange', 'coral', 'peach']
+    },
+    finishes: {
+      matte: ['matte', 'frosted', 'dull'],
+      glossy: ['glossy', 'shiny', 'polished', 'smooth'],
+      faceted: ['faceted', 'cut', 'geometric', 'angular'],
+      textured: ['textured', 'rough', 'bumpy', 'ridged']
     }
   };
 
@@ -150,7 +166,8 @@ function analyzeDescription(description: string) {
     materials: [] as Array<{type: string, confidence: number, matched_words: string[]}>,
     types: [] as Array<{type: string, confidence: number, matched_words: string[]}>,
     shapes: [] as Array<{type: string, confidence: number, matched_words: string[]}>,
-    colors: [] as Array<{type: string, confidence: number, matched_words: string[]}>
+    colors: [] as Array<{type: string, confidence: number, matched_words: string[]}>,
+    finishes: [] as Array<{type: string, confidence: number, matched_words: string[]}>
   };
 
   const lowercaseDesc = description.toLowerCase();
@@ -177,16 +194,44 @@ function analyzeDescription(description: string) {
 }
 
 async function findMatchingBeads(analysis: any) {
-  // This would normally query your bead database
-  // For now, return mock suggestions based on analysis
-  
   const suggestions = [];
   
+  // Check for silver/gold foil indicators (lampwork beads)
+  const hasFoilIndicators = analysis.materials.some((m: any) => m.type === 'foil') ||
+                           analysis.types.some((t: any) => t.type === 'lampwork') ||
+                           analysis.materials.some((m: any) => m.matched_words.includes('silver')) ||
+                           analysis.materials.some((m: any) => m.matched_words.includes('gold'));
+  
+  if (hasFoilIndicators) {
+    suggestions.push({
+      title: 'Silver Foil Lampwork Beads',
+      slug: 'silver-foil-lampwork',
+      description: 'Handcrafted glass beads with silver foil encased within, creating beautiful metallic effects',
+      confidence: 0.90,
+      category: 'lampwork',
+      tags: ['lampwork', 'silver foil', 'handmade', 'artisan']
+    });
+  }
+
+  // Check for heart shape indicators
+  const hasHeartShape = analysis.shapes.some((s: any) => s.type === 'heart');
+  
+  if (hasHeartShape) {
+    suggestions.push({
+      title: 'Heart-Shaped Beads',
+      slug: 'heart-beads',
+      description: 'Decorative heart-shaped beads perfect for romantic jewelry projects',
+      confidence: 0.88,
+      category: 'novelty',
+      tags: ['heart', 'romantic', 'decorative']
+    });
+  }
+
   // Check for Venetian glass indicators
   const hasVenetianIndicators = analysis.types.some((t: any) => t.type === 'venetian') ||
                                 analysis.materials.some((m: any) => m.type === 'glass');
   
-  if (hasVenetianIndicators) {
+  if (hasVenetianIndicators && !hasFoilIndicators) {
     suggestions.push({
       title: 'Venetian Glass Beads',
       slug: 'venetian-glass',
@@ -201,7 +246,7 @@ async function findMatchingBeads(analysis: any) {
   const hasSeedIndicators = analysis.types.some((t: any) => t.type === 'seed') ||
                            analysis.shapes.some((s: any) => s.type === 'round');
   
-  if (hasSeedIndicators) {
+  if (hasSeedIndicators && !hasFoilIndicators && !hasHeartShape) {
     suggestions.push({
       title: 'Seed Beads',
       slug: 'seed-beads',
@@ -211,8 +256,21 @@ async function findMatchingBeads(analysis: any) {
       tags: ['seed', 'small', 'beadwork']
     });
   }
+
+  // Check for Czech beads
+  const hasCzechIndicators = analysis.types.some((t: any) => t.type === 'czech') ||
+                            analysis.finishes.some((f: any) => f.type === 'faceted');
   
-  // Add more logic for other bead types based on analysis
+  if (hasCzechIndicators) {
+    suggestions.push({
+      title: 'Czech Glass Beads',
+      slug: 'czech-glass',
+      description: 'High-quality Czech glass beads known for their precision and brilliance',
+      confidence: 0.82,
+      category: 'glass',
+      tags: ['czech', 'glass', 'faceted']
+    });
+  }
   
   return suggestions.sort((a, b) => b.confidence - a.confidence);
 }
