@@ -3,20 +3,6 @@ interface Env {
   BEAD_DATA: KVNamespace;
 }
 
-// Helper function to safely convert ArrayBuffer to base64
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  const chunkSize = 8192; // Process in chunks to avoid stack overflow
-  
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.slice(i, i + chunkSize);
-    binary += String.fromCharCode.apply(null, Array.from(chunk));
-  }
-  
-  return btoa(binary);
-}
-
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     // Handle CORS
@@ -90,54 +76,101 @@ export default {
         });
       }
 
-      // Try using Hugging Face Inference API with a different approach
-      console.log('🤖 Calling Hugging Face API...');
-      
-      // Get raw image data for the API
-      const imageBuffer = await imageFile.arrayBuffer();
-      
-      const aiResponse = await fetch(
-        'https://api-inference.huggingface.co/models/nlpconnect/vit-gpt2-image-captioning',
-        {
-          headers: {
-            'Authorization': `Bearer ${env.HF_API_TOKEN}`,
-          },
-          method: 'POST',
-          body: imageBuffer, // Send raw image data instead of base64
-        }
-      );
+      // Try multiple working models in order of preference
+      const models = [
+        'nlpconnect/vit-gpt2-image-captioning',
+        'Salesforce/blip-image-captioning-base',
+        'microsoft/git-base'
+      ];
 
-      console.log('📡 AI API Response status:', aiResponse.status, aiResponse.ok);
+      let description = '';
+      let usedModel = '';
+      
+      for (const model of models) {
+        try {
+          console.log(`🤖 Trying model: ${model}`);
+          
+          const imageBuffer = await imageFile.arrayBuffer();
+          
+          const aiResponse = await fetch(
+            `https://api-inference.huggingface.co/models/${model}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${env.HF_API_TOKEN}`,
+                'Content-Type': 'application/octet-stream',
+              },
+              method: 'POST',
+              body: imageBuffer,
+            }
+          );
 
-      if (!aiResponse.ok) {
-        const errorText = await aiResponse.text();
-        console.error('❌ AI API Error:', errorText);
-        
-        // Handle common API errors
-        if (aiResponse.status === 503) {
-          return new Response(JSON.stringify({
-            error: 'AI service is temporarily loading. Please try again in a moment.',
-            debug: { 
-              error_message: 'Model loading',
-              status: aiResponse.status,
-              timestamp: new Date().toISOString()
+          console.log(`📡 Model ${model} response:`, aiResponse.status, aiResponse.ok);
+
+          if (aiResponse.ok) {
+            const result = await aiResponse.json();
+            console.log('✅ AI Result received:', result);
+            
+            if (result && Array.isArray(result) && result[0]?.generated_text) {
+              description = result[0].generated_text;
+              usedModel = model;
+              break;
             }
-          }), { 
-            status: 503,
-            headers: {
-              'Content-Type': 'application/json',
-              ...corsHeaders
+          } else {
+            const errorText = await aiResponse.text();
+            console.log(`❌ Model ${model} failed:`, aiResponse.status, errorText);
+            
+            // If it's a 503 (model loading), wait and try again
+            if (aiResponse.status === 503) {
+              console.log('⏳ Model loading, waiting 3 seconds...');
+              await new Promise(resolve => setTimeout(resolve, 3000));
+              
+              // Try once more
+              const retryResponse = await fetch(
+                `https://api-inference.huggingface.co/models/${model}`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${env.HF_API_TOKEN}`,
+                    'Content-Type': 'application/octet-stream',
+                  },
+                  method: 'POST',
+                  body: imageBuffer,
+                }
+              );
+              
+              if (retryResponse.ok) {
+                const retryResult = await retryResponse.json();
+                if (retryResult && Array.isArray(retryResult) && retryResult[0]?.generated_text) {
+                  description = retryResult[0].generated_text;
+                  usedModel = model;
+                  break;
+                }
+              }
             }
-          });
+          }
+        } catch (error) {
+          console.error(`💥 Error with model ${model}:`, error);
+          continue; // Try next model
         }
-        
-        throw new Error(`AI service error: ${aiResponse.status} - ${errorText}`);
       }
 
-      const result = await aiResponse.json();
-      console.log('✅ AI Result received:', result);
-      
-      const description = result[0]?.generated_text || 'Unable to generate description';
+      // If no model worked, return a fallback
+      if (!description) {
+        return new Response(JSON.stringify({
+          error: 'Unable to process image at this time. Please try again later.',
+          debug: { 
+            error_message: 'All image captioning models unavailable',
+            tried_models: models,
+            timestamp: new Date().toISOString()
+          }
+        }), { 
+          status: 503,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders
+          }
+        });
+      }
+
       console.log('📝 Final description:', description);
 
       // Enhanced analysis with keyword matching
@@ -156,7 +189,7 @@ export default {
             type: imageFile.type,
             name: imageFile.name
           },
-          model: 'nlpconnect/vit-gpt2-image-captioning',
+          model_used: usedModel,
           timestamp: new Date().toISOString()
         }
       };
@@ -209,7 +242,8 @@ function analyzeDescription(description: string) {
       white: ['white', 'pearl', 'ivory', 'cream'],
       pink: ['pink', 'rose', 'magenta'],
       orange: ['orange', 'coral', 'peach'],
-      brown: ['brown', 'tan', 'beige', 'coffee', 'chocolate', 'earth', 'natural']
+      brown: ['brown', 'tan', 'beige', 'coffee', 'chocolate', 'earth', 'natural'],
+      colorful: ['colorful', 'multicolored', 'various colors', 'different colors']
     },
     shapes: {
       round: ['round', 'sphere', 'ball', 'circular'],
@@ -217,7 +251,8 @@ function analyzeDescription(description: string) {
       cylinder: ['cylinder', 'tube', 'barrel'],
       disc: ['disc', 'flat', 'coin'],
       irregular: ['irregular', 'organic', 'freeform'],
-      heart: ['heart', 'heart-shaped', 'love']
+      heart: ['heart', 'heart-shaped', 'love'],
+      small: ['small', 'tiny', 'little', 'mini']
     }
   };
 
@@ -278,6 +313,21 @@ async function findMatchingBeads(analysis: any) {
       confidence: 0.80,
       category: 'metal',
       tags: ['metal', 'metallic', 'shiny']
+    });
+  }
+
+  // Check for colorful beads
+  const hasColorfulIndicators = analysis.colors.some((c: any) => c.type === 'colorful') ||
+                               analysis.colors.length > 2;
+  
+  if (hasColorfulIndicators && suggestions.length === 0) {
+    suggestions.push({
+      title: 'Mixed Color Glass Beads',
+      slug: 'mixed-color-glass',
+      description: 'Colorful glass beads perfect for vibrant jewelry projects',
+      confidence: 0.75,
+      category: 'glass',
+      tags: ['glass', 'colorful', 'mixed', 'jewelry']
     });
   }
 
