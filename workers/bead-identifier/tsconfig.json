@@ -1,5 +1,4 @@
 {
-  "extends": "@cloudflare/workers-types",
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2022"],
@@ -9,6 +8,7 @@
     "esModuleInterop": true,
     "strict": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "types": ["@cloudflare/workers-types"]
   }
 }
