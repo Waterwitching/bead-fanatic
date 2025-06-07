@@ -65,14 +65,21 @@ export default {
       
       let description = '';
       let analysisMethod = '';
+      let debugInfo: any = {
+        gemini_attempted: false,
+        gemini_error: null,
+        hf_attempted: false,
+        hf_error: null
+      };
 
-      // Try Gemini 2.5 Flash first (FREE and reliable!)
+      // Try Gemini 1.5 Flash first (FREE and reliable!)
       if (env.GOOGLE_API_KEY) {
         try {
-          console.log('🤖 Using Gemini 2.5 Flash for analysis...');
+          console.log('🤖 Using Gemini 1.5 Flash for analysis...');
+          debugInfo.gemini_attempted = true;
           
           const geminiResponse = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GOOGLE_API_KEY}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.GOOGLE_API_KEY}`,
             {
               method: 'POST',
               headers: {
@@ -110,21 +117,30 @@ export default {
             
             if (geminiResult.candidates && geminiResult.candidates[0]?.content?.parts[0]?.text) {
               description = geminiResult.candidates[0].content.parts[0].text;
-              analysisMethod = 'Gemini-2.5-Flash-FREE';
+              analysisMethod = 'Gemini-1.5-Flash-FREE';
               console.log('📝 Gemini description received');
+            } else {
+              console.log('⚠️ Gemini response structure unexpected:', JSON.stringify(geminiResult));
+              debugInfo.gemini_error = 'Unexpected response structure';
             }
           } else {
             const errorText = await geminiResponse.text();
             console.log('❌ Gemini failed:', geminiResponse.status, errorText);
+            debugInfo.gemini_error = `HTTP ${geminiResponse.status}: ${errorText}`;
           }
         } catch (error) {
           console.log('⚠️ Gemini error:', error);
+          debugInfo.gemini_error = error.message;
         }
+      } else {
+        console.log('⚠️ No Google API key configured');
+        debugInfo.gemini_error = 'No API key configured';
       }
 
       // Fallback to Hugging Face if Gemini fails
       if (!description && env.HF_API_TOKEN) {
         console.log('🔄 Falling back to Hugging Face...');
+        debugInfo.hf_attempted = true;
         try {
           const hfResponse = await fetch(
             'https://api-inference.huggingface.co/models/nlpconnect/vit-gpt2-image-captioning',
@@ -138,25 +154,43 @@ export default {
             }
           );
 
+          console.log('📡 HF response status:', hfResponse.status);
+
           if (hfResponse.ok) {
             const result = await hfResponse.json();
+            console.log('✅ HF result:', result);
             if (result && Array.isArray(result) && result[0]?.generated_text) {
               description = result[0].generated_text;
               analysisMethod = 'HuggingFace-Fallback';
+            } else {
+              debugInfo.hf_error = 'Unexpected response structure';
             }
+          } else {
+            const errorText = await hfResponse.text();
+            console.log('❌ HF failed:', hfResponse.status, errorText);
+            debugInfo.hf_error = `HTTP ${hfResponse.status}: ${errorText}`;
           }
         } catch (error) {
           console.log('❌ HuggingFace fallback failed:', error);
+          debugInfo.hf_error = error.message;
         }
+      } else if (!description) {
+        console.log('⚠️ No HuggingFace API token configured');
+        debugInfo.hf_error = 'No API token configured';
       }
 
-      // Ultimate fallback
+      // Ultimate fallback with detailed error info
       if (!description) {
         return new Response(JSON.stringify({
           error: 'Unable to analyze image at this time. Please try again later.',
           debug: {
             error_message: 'All AI services unavailable',
-            timestamp: new Date().toISOString()
+            details: debugInfo,
+            timestamp: new Date().toISOString(),
+            suggestions: [
+              env.GOOGLE_API_KEY ? null : 'Google API key not configured',
+              env.HF_API_TOKEN ? null : 'HuggingFace token not configured',
+            ].filter(Boolean)
           }
         }), {
           status: 503,
@@ -186,7 +220,8 @@ export default {
             name: imageFile.name
           },
           analysis_method: analysisMethod,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          ...debugInfo
         }
       };
 
