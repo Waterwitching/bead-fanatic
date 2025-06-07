@@ -34,9 +34,12 @@ export async function POST({ request }: { request: Request }) {
   } catch (error) {
     console.error('Error in bead identification API:', error);
     
+    // Handle TypeScript error typing
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    
     return new Response(JSON.stringify({
       error: 'Failed to identify bead. Please try again.',
-      details: error.message
+      details: errorMessage
     }), {
       status: 500,
       headers: {
