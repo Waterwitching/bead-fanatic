@@ -2,25 +2,5 @@ name = "bead-identifier"
 main = "src/index.ts"
 compatibility_date = "2024-05-01"
 
-[env.production]
-name = "bead-identifier"
-route = { pattern = "beadfanatic.co.uk/api/identify-bead", zone_name = "beadfanatic.co.uk" }
-
-[env.staging]
-name = "bead-identifier-staging"
-
-[[env.production.kv_namespaces]]
-binding = "BEAD_DATA"
-id = "be525c016a564b9db7121e62c48bfdf7"
-
-[[env.production.d1_databases]]
-binding = "DB"
-database_name = "bead-fanatic-db"
-database_id = "a9dd60f1-8ae3-4e70-b4bd-46e0413fd106"
-
-[[env.production.r2_buckets]]
-binding = "IMAGES"
-bucket_name = "bead-fanatic-images"
-
 [vars]
 HF_API_TOKEN = "your-huggingface-token-here"
