@@ -54,8 +54,17 @@ export default {
       const imageBuffer = await imageFile.arrayBuffer();
       const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
 
+      // DEBUG: Log image info
+      console.log('Processing image:', {
+        name: imageFile.name,
+        size: imageFile.size,
+        type: imageFile.type,
+        base64_length: base64Image.length,
+        base64_preview: base64Image.substring(0, 50) + '...'
+      });
+
       // Use Hugging Face Inference API for image description
-      const response = await fetch(
+      const aiResponse = await fetch(
         'https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-large',
         {
           headers: {
@@ -73,12 +82,28 @@ export default {
         }
       );
 
-      if (!response.ok) {
-        throw new Error(`AI service error: ${response.status}`);
+      // DEBUG: Log API response details
+      console.log('AI API Response:', {
+        status: aiResponse.status,
+        ok: aiResponse.ok,
+        headers: Object.fromEntries(aiResponse.headers.entries())
+      });
+
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text();
+        console.error('AI API Error:', errorText);
+        throw new Error(`AI service error: ${aiResponse.status} - ${errorText}`);
       }
 
-      const result = await response.json();
+      const result = await aiResponse.json();
+      
+      // DEBUG: Log the actual AI result
+      console.log('AI Result:', JSON.stringify(result, null, 2));
+      
       const description = result[0]?.generated_text || 'Unable to generate description';
+
+      // DEBUG: Log final description
+      console.log('Final description:', description);
 
       // Enhanced analysis with keyword matching
       const analysis = analyzeDescription(description);
@@ -86,11 +111,23 @@ export default {
       // Find matching beads based on analysis
       const suggestions = await findMatchingBeads(analysis);
 
-      return new Response(JSON.stringify({
+      // Add debug info to response
+      const response = {
         description,
         analysis,
-        suggestions
-      }), {
+        suggestions,
+        debug: {
+          image_info: {
+            size: imageFile.size,
+            type: imageFile.type,
+            name: imageFile.name
+          },
+          ai_raw_result: result,
+          timestamp: new Date().toISOString()
+        }
+      };
+
+      return new Response(JSON.stringify(response), {
         headers: {
           'Content-Type': 'application/json',
           ...corsHeaders
@@ -100,7 +137,11 @@ export default {
     } catch (error) {
       console.error('Error identifying bead:', error);
       return new Response(JSON.stringify({ 
-        error: 'Failed to identify bead. Please try again.' 
+        error: 'Failed to identify bead. Please try again.',
+        debug: {
+          error_message: error.message,
+          timestamp: new Date().toISOString()
+        }
       }), { 
         status: 500,
         headers: {
@@ -117,7 +158,7 @@ function analyzeDescription(description: string) {
     materials: {
       glass: ['glass', 'crystal', 'transparent', 'clear', 'shiny', 'smooth'],
       metal: ['metal', 'silver', 'gold', 'copper', 'bronze', 'brass', 'metallic'],
-      stone: ['stone', 'marble', 'granite', 'quartz', 'agate', 'natural'],
+      stone: ['stone', 'marble', 'granite', 'quartz', 'agate', 'natural', 'jasper', 'rock', 'mineral'],
       wood: ['wood', 'wooden', 'natural', 'brown', 'grain'],
       ceramic: ['ceramic', 'porcelain', 'clay', 'glazed'],
       plastic: ['plastic', 'acrylic', 'synthetic'],
@@ -130,7 +171,8 @@ function analyzeDescription(description: string) {
       pearl: ['pearl', 'lustrous', 'round', 'white', 'cream', 'nacre'],
       lampwork: ['lampwork', 'handmade', 'artisan', 'swirl', 'pattern', 'foil', 'silver foil', 'gold foil'],
       millefiori: ['millefiori', 'thousand flowers', 'cane', 'mosaic'],
-      dichroic: ['dichroic', 'color changing', 'iridescent', 'rainbow']
+      dichroic: ['dichroic', 'color changing', 'iridescent', 'rainbow'],
+      gemstone: ['gemstone', 'semi-precious', 'jasper', 'agate', 'quartz', 'natural stone']
     },
     shapes: {
       round: ['round', 'sphere', 'ball', 'circular'],
@@ -152,7 +194,8 @@ function analyzeDescription(description: string) {
       black: ['black', 'ebony', 'onyx'],
       white: ['white', 'pearl', 'ivory', 'cream'],
       pink: ['pink', 'rose', 'magenta'],
-      orange: ['orange', 'coral', 'peach']
+      orange: ['orange', 'coral', 'peach'],
+      brown: ['brown', 'tan', 'beige', 'coffee', 'chocolate', 'earth', 'natural']
     },
     finishes: {
       matte: ['matte', 'frosted', 'dull'],
@@ -196,6 +239,22 @@ function analyzeDescription(description: string) {
 async function findMatchingBeads(analysis: any) {
   const suggestions = [];
   
+  // Check for stone/jasper indicators first
+  const hasStoneIndicators = analysis.materials.some((m: any) => m.type === 'stone') ||
+                            analysis.types.some((t: any) => t.type === 'gemstone') ||
+                            analysis.colors.some((c: any) => c.type === 'brown');
+  
+  if (hasStoneIndicators) {
+    suggestions.push({
+      title: 'Jasper Stone Beads',
+      slug: 'jasper-stone',
+      description: 'Natural jasper stone beads with earthy colors and unique patterns',
+      confidence: 0.92,
+      category: 'stone',
+      tags: ['jasper', 'stone', 'natural', 'gemstone']
+    });
+  }
+
   // Check for silver/gold foil indicators (lampwork beads)
   const hasFoilIndicators = analysis.materials.some((m: any) => m.type === 'foil') ||
                            analysis.types.some((t: any) => t.type === 'lampwork') ||
@@ -231,7 +290,7 @@ async function findMatchingBeads(analysis: any) {
   const hasVenetianIndicators = analysis.types.some((t: any) => t.type === 'venetian') ||
                                 analysis.materials.some((m: any) => m.type === 'glass');
   
-  if (hasVenetianIndicators && !hasFoilIndicators) {
+  if (hasVenetianIndicators && !hasFoilIndicators && !hasStoneIndicators) {
     suggestions.push({
       title: 'Venetian Glass Beads',
       slug: 'venetian-glass',
@@ -246,7 +305,7 @@ async function findMatchingBeads(analysis: any) {
   const hasSeedIndicators = analysis.types.some((t: any) => t.type === 'seed') ||
                            analysis.shapes.some((s: any) => s.type === 'round');
   
-  if (hasSeedIndicators && !hasFoilIndicators && !hasHeartShape) {
+  if (hasSeedIndicators && !hasFoilIndicators && !hasHeartShape && !hasStoneIndicators) {
     suggestions.push({
       title: 'Seed Beads',
       slug: 'seed-beads',
