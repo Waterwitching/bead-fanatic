@@ -128,6 +128,16 @@ import Layout from '@/layouts/Layout.astro';
   const loadingSpinner = document.getElementById('loading-spinner') as HTMLElement;
   const results = document.getElementById('results') as HTMLElement;
   
+  // Simple markdown to HTML converter
+  function parseMarkdown(text: string): string {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // **bold** to <strong>
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')              // *italic* to <em>
+      .replace(/\n\n/g, '</p><p>')                       // Double newlines to paragraphs
+      .replace(/\n/g, '<br>')                            // Single newlines to <br>
+      .replace(/^(.*)$/, '<p>$1</p>');                   // Wrap in paragraph
+  }
+  
   // File upload handling
   imageInput.addEventListener('change', function(e) {
     const file = (e.target as HTMLInputElement).files?.[0];
@@ -262,11 +272,12 @@ import Layout from '@/layouts/Layout.astro';
     // Hide any previous error
     errorMessage.classList.add('hidden');
     
-    // Display AI description
+    // Display AI description with proper markdown parsing
+    const formattedDescription = parseMarkdown(data.description);
     aiDescription.innerHTML = `
       <div class="bg-accent/50 rounded-xl p-4 mb-4">
         <h4 class="font-bold text-dark mb-2">🤖 AI Analysis</h4>
-        <p class="text-text">${data.description}</p>
+        <div class="text-text prose prose-sm max-w-none">${formattedDescription}</div>
       </div>
     `;
     
@@ -281,8 +292,8 @@ import Layout from '@/layouts/Layout.astro';
             <div class="flex-grow">
               <h5 class="font-bold text-dark mb-1">${suggestion.title}</h5>
               <p class="text-sm text-text-light mb-2">${suggestion.description}</p>
-              <div class="flex items-center space-x-2 mb-2">
-                ${suggestion.tags.map((tag: string) => `<span class="tag text-xs">${tag}</span>`).join('')}
+              <div class="flex flex-wrap gap-1 mb-2">
+                ${suggestion.tags.map((tag: string) => `<span class="tag text-xs px-2 py-1 bg-primary/10 text-primary rounded-full">${tag}</span>`).join('')}
               </div>
               <p class="text-xs text-primary font-semibold">${Math.round(suggestion.confidence * 100)}% confidence</p>
             </div>
