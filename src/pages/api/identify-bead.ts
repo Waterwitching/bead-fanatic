@@ -5,8 +5,7 @@ export async function POST({ request }: { request: Request }) {
     const formData = await request.formData();
     
     // Forward the request to your Cloudflare Worker
-    // Replace with your actual worker URL when deployed
-    const workerUrl = 'https://bead-identifier.YOUR_SUBDOMAIN.workers.dev';
+    const workerUrl = 'https://bead-identifier.eroewen.workers.dev';
     
     const response = await fetch(workerUrl, {
       method: 'POST',
