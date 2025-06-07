@@ -1,0 +1,9 @@
+name = "bead-fanatic"
+compatibility_date = "2024-05-01"
+pages_build_output_dir = "./dist"
+
+[build]
+command = "npm install && npm run build"
+
+[env.production.vars]
+NODE_VERSION = "20"
