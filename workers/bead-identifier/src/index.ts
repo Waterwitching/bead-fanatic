@@ -89,7 +89,7 @@ export default {
                 contents: [{
                   parts: [
                     {
-                      text: "Analyze this image of beads in detail. I need you to identify and describe:\n\n1. MATERIALS: What are these beads made of? (glass, stone, metal, ceramic, wood, plastic, etc.)\n2. COLORS: What specific colors do you see?\n3. SHAPES: What shapes are the beads? (round, oval, cylindrical, faceted, etc.)\n4. SIZE: How large do they appear to be?\n5. FINISH: What type of finish do they have? (glossy, matte, textured, etc.)\n6. BEAD TYPE: What specific type of beads are these? (seed beads, gemstone beads, glass beads, etc.)\n\nBe specific and detailed in your analysis as this will help identify the exact type of beads for jewelry making purposes."
+                      text: "Analyze this image of beads in detail. I need you to identify and describe:\n\n1. MATERIALS: What are these beads made of? (glass, stone, metal, ceramic, wood, plastic, etc.)\n2. COLORS: What specific colors do you see?\n3. SHAPES: What shapes are the beads? (round, oval, cylindrical, faceted, heart-shaped, star-shaped, square, etc.)\n4. SIZE: How large do they appear to be?\n5. FINISH: What type of finish do they have? (glossy, matte, textured, etc.)\n6. BEAD TYPE: What specific type of beads are these? (seed beads, gemstone beads, glass beads, etc.)\n\nBe specific and detailed in your analysis as this will help identify the exact type of beads for jewelry making purposes."
                     },
                     {
                       inline_data: {
@@ -298,6 +298,9 @@ function analyzeDescription(description: string) {
       faceted: ['faceted', 'cut', 'geometric', 'angular', 'crystalline', 'multi-sided'],
       irregular: ['irregular', 'organic', 'freeform', 'natural shape', 'random'],
       flat: ['flat', 'disc', 'coin', 'button', 'tablet'],
+      heart: ['heart', 'heart-shaped', 'heart shaped'],
+      star: ['star', 'star-shaped', 'star shaped'],
+      square: ['square', 'cube', 'cubic', 'rectangular'],
       small: ['small', 'tiny', 'little', 'mini', 'miniature'],
       large: ['large', 'big', 'chunky', 'oversized', 'substantial']
     },
@@ -347,6 +350,40 @@ function findMatchingBeads(analysis: any, isFallback: boolean = false) {
   const topShape = analysis.shapes[0];
   const topFinish = analysis.finishes[0];
   
+  // Shape-based suggestions for specialty shapes
+  if (topShape?.type === 'heart') {
+    suggestions.push({
+      title: `Heart-Shaped ${topMaterial?.type || 'Glass'} Beads`,
+      slug: 'heart-shaped-beads',
+      description: `Beautiful heart-shaped beads ${topColor ? `in ${topColor.type} ` : ''}perfect for romantic jewelry and special occasion designs`,
+      confidence: isFallback ? 0.80 : 0.92,
+      category: 'specialty',
+      tags: ['heart', 'specialty', 'romantic', topColor?.type, topMaterial?.type].filter(Boolean)
+    });
+  }
+
+  if (topShape?.type === 'star') {
+    suggestions.push({
+      title: `Star-Shaped ${topMaterial?.type || 'Glass'} Beads`,
+      slug: 'star-shaped-beads',
+      description: `Celestial star-shaped beads ${topColor ? `in ${topColor.type} ` : ''}that add cosmic sparkle to jewelry designs`,
+      confidence: isFallback ? 0.80 : 0.92,
+      category: 'specialty',
+      tags: ['star', 'specialty', 'celestial', topColor?.type, topMaterial?.type].filter(Boolean)
+    });
+  }
+
+  if (topShape?.type === 'square') {
+    suggestions.push({
+      title: `Square ${topMaterial?.type || 'Glass'} Beads`,
+      slug: 'square-beads',
+      description: `Geometric square beads ${topColor ? `in ${topColor.type} ` : ''}for modern, architectural jewelry designs`,
+      confidence: isFallback ? 0.80 : 0.90,
+      category: 'geometric',
+      tags: ['square', 'geometric', 'modern', topColor?.type, topMaterial?.type].filter(Boolean)
+    });
+  }
+
   // Material-based suggestions
   if (topMaterial?.type === 'stone') {
     suggestions.push({
@@ -405,7 +442,7 @@ function findMatchingBeads(analysis: any, isFallback: boolean = false) {
     });
   }
 
-  // Shape-based suggestions
+  // Shape-based suggestions for common shapes
   if (topShape?.type === 'faceted') {
     suggestions.push({
       title: 'Faceted Crystal Beads',
