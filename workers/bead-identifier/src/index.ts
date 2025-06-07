@@ -1,4 +1,388 @@
-function findMatchingBeads(analysis: any, isFallback: boolean = false) {
+interface Env {
+  GOOGLE_API_KEY: string;
+  HF_API_TOKEN: string;
+  BEAD_DATA: KVNamespace;
+}
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    // Handle CORS
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    };
+
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { headers: corsHeaders });
+    }
+
+    if (request.method !== 'POST') {
+      return new Response('Method not allowed', { 
+        status: 405, 
+        headers: corsHeaders 
+      });
+    }
+
+    try {
+      console.log('🔮 Starting bead identification process...');
+      
+      const formData = await request.formData();
+      const imageFile = formData.get('image') as File;
+      
+      if (!imageFile) {
+        return new Response('No image provided', { 
+          status: 400, 
+          headers: corsHeaders 
+        });
+      }
+
+      // Validate file size (max 5MB)
+      if (imageFile.size > 5 * 1024 * 1024) {
+        return new Response('Image too large. Maximum size is 5MB.', { 
+          status: 400, 
+          headers: corsHeaders 
+        });
+      }
+
+      // Validate file type
+      if (!imageFile.type.startsWith('image/')) {
+        return new Response('Invalid file type. Please upload an image.', { 
+          status: 400, 
+          headers: corsHeaders 
+        });
+      }
+
+      console.log('📸 Processing image:', {
+        name: imageFile.name,
+        size: imageFile.size,
+        type: imageFile.type
+      });
+
+      // Convert image to base64 for Gemini
+      const imageBuffer = await imageFile.arrayBuffer();
+      const base64Image = arrayBufferToBase64(imageBuffer);
+      
+      let description = '';
+      let analysisMethod = '';
+      let debugInfo: any = {
+        gemini_attempted: false,
+        gemini_error: null,
+        hf_attempted: false,
+        hf_error: null
+      };
+
+      // Try Gemini 1.5 Flash first (FREE and reliable!)
+      if (env.GOOGLE_API_KEY) {
+        try {
+          console.log('🤖 Using Gemini 1.5 Flash for analysis...');
+          debugInfo.gemini_attempted = true;
+          
+          const geminiResponse = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${env.GOOGLE_API_KEY}`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                contents: [{
+                  parts: [
+                    {
+                      text: "Analyze this image of beads in detail. I need you to identify and describe:\n\n1. MATERIALS: What are these beads made of? (glass, stone, metal, ceramic, wood, plastic, etc.)\n2. COLORS: What specific colors do you see?\n3. SHAPES: What shapes are the beads? (round, oval, cylindrical, faceted, heart-shaped, star-shaped, square, etc.)\n4. SIZE: How large do they appear to be?\n5. FINISH: What type of finish do they have? (glossy, matte, textured, etc.)\n6. BEAD TYPE: What specific type of beads are these? (seed beads, gemstone beads, glass beads, etc.)\n\nBe specific and detailed in your analysis as this will help identify the exact type of beads for jewelry making purposes."
+                    },
+                    {
+                      inline_data: {
+                        mime_type: imageFile.type,
+                        data: base64Image
+                      }
+                    }
+                  ]
+                }],
+                generationConfig: {
+                  temperature: 0.4,
+                  topK: 32,
+                  topP: 1,
+                  maxOutputTokens: 300,
+                }
+              })
+            }
+          );
+
+          console.log('📡 Gemini response status:', geminiResponse.status);
+
+          if (geminiResponse.ok) {
+            const geminiResult = await geminiResponse.json();
+            console.log('✅ Gemini analysis received');
+            
+            if (geminiResult.candidates && geminiResult.candidates[0]?.content?.parts[0]?.text) {
+              description = geminiResult.candidates[0].content.parts[0].text;
+              analysisMethod = 'Gemini-1.5-Flash-FREE';
+              console.log('📝 Gemini description received');
+            } else {
+              console.log('⚠️ Gemini response structure unexpected:', JSON.stringify(geminiResult));
+              debugInfo.gemini_error = 'Unexpected response structure';
+            }
+          } else {
+            const errorText = await geminiResponse.text();
+            console.log('❌ Gemini failed:', geminiResponse.status, errorText);
+            debugInfo.gemini_error = `HTTP ${geminiResponse.status}: ${errorText}`;
+          }
+        } catch (error) {
+          console.log('⚠️ Gemini error:', error);
+          debugInfo.gemini_error = error.message;
+        }
+      } else {
+        console.log('⚠️ No Google API key configured');
+        debugInfo.gemini_error = 'No API key configured';
+      }
+
+      // Fallback to Hugging Face if Gemini fails
+      if (!description && env.HF_API_TOKEN) {
+        console.log('🔄 Falling back to Hugging Face...');
+        debugInfo.hf_attempted = true;
+        try {
+          const hfResponse = await fetch(
+            'https://api-inference.huggingface.co/models/nlpconnect/vit-gpt2-image-captioning',
+            {
+              headers: {
+                'Authorization': `Bearer ${env.HF_API_TOKEN}`,
+                'Content-Type': 'application/octet-stream',
+              },
+              method: 'POST',
+              body: imageBuffer,
+            }
+          );
+
+          console.log('📡 HF response status:', hfResponse.status);
+
+          if (hfResponse.ok) {
+            const result = await hfResponse.json();
+            console.log('✅ HF result:', result);
+            if (result && Array.isArray(result) && result[0]?.generated_text) {
+              description = result[0].generated_text;
+              analysisMethod = 'HuggingFace-Fallback';
+            } else {
+              debugInfo.hf_error = 'Unexpected response structure';
+            }
+          } else {
+            const errorText = await hfResponse.text();
+            console.log('❌ HF failed:', hfResponse.status, errorText);
+            debugInfo.hf_error = `HTTP ${hfResponse.status}: ${errorText}`;
+          }
+        } catch (error) {
+          console.log('❌ HuggingFace fallback failed:', error);
+          debugInfo.hf_error = error.message;
+        }
+      } else if (!description) {
+        console.log('⚠️ No HuggingFace API token configured');
+        debugInfo.hf_error = 'No API token configured';
+      }
+
+      // Ultimate fallback with detailed error info
+      if (!description) {
+        return new Response(JSON.stringify({
+          error: 'Unable to analyze image at this time. Please try again later.',
+          debug: {
+            error_message: 'All AI services unavailable',
+            details: debugInfo,
+            timestamp: new Date().toISOString(),
+            suggestions: [
+              env.GOOGLE_API_KEY ? null : 'Google API key not configured',
+              env.HF_API_TOKEN ? null : 'HuggingFace token not configured',
+            ].filter(Boolean)
+          }
+        }), {
+          status: 503,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders
+          }
+        });
+      }
+
+      console.log('📝 Final description:', description);
+
+      // Enhanced analysis with keyword matching
+      const analysis = analyzeDescription(description);
+      
+      // Find matching beads based on analysis
+      const suggestions = findMatchingBeads(analysis, description, analysisMethod.includes('Fallback'));
+
+      const response = {
+        description,
+        analysis,
+        suggestions,
+        debug: {
+          image_info: {
+            size: imageFile.size,
+            type: imageFile.type,
+            name: imageFile.name
+          },
+          analysis_method: analysisMethod,
+          timestamp: new Date().toISOString(),
+          ...debugInfo
+        }
+      };
+
+      return new Response(JSON.stringify(response), {
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders
+        }
+      });
+
+    } catch (error) {
+      console.error('💥 Error identifying bead:', error);
+      return new Response(JSON.stringify({ 
+        error: 'Failed to identify bead. Please try again.',
+        debug: {
+          error_message: error.message,
+          timestamp: new Date().toISOString()
+        }
+      }), { 
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders
+        }
+      });
+    }
+  }
+};
+
+// Helper function to safely convert ArrayBuffer to base64
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunkSize = 8192;
+  
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.slice(i, i + chunkSize);
+    binary += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+  
+  return btoa(binary);
+}
+
+function analyzeDescription(description: string) {
+  const beadKeywords = {
+    materials: {
+      glass: [
+        'glass', 'crystal', 'transparent', 'clear', 'shiny', 'smooth', 'translucent', 'vitreous',
+        'venetian glass', 'murano', 'lampwork', 'blown glass', 'fused glass',
+        'silver leafing', 'gold leafing', 'foil', 'leafing', 'silver leaf', 'gold leaf',
+        'metallic effect within', 'metallic inclusions', 'incorporated into the glass',
+        'flecks and swirls', 'effect incorporated', 'within the glass'
+      ],
+      metal: ['solid metal', 'pure metal', 'metal bead', 'steel bead', 'brass bead', 'copper bead', 'silver bead', 'gold bead'],
+      stone: ['stone', 'marble', 'granite', 'quartz', 'agate', 'natural', 'jasper', 'rock', 'mineral', 'gemstone', 'jade', 'turquoise'],
+      wood: ['wood', 'wooden', 'natural', 'brown', 'grain', 'timber', 'bamboo'],
+      ceramic: ['ceramic', 'porcelain', 'clay', 'glazed', 'pottery', 'fired'],
+      plastic: ['plastic', 'acrylic', 'synthetic', 'resin', 'polymer'],
+      pearl: ['pearl', 'nacre', 'lustrous', 'iridescent', 'mother-of-pearl'],
+      seed: ['seed', 'small', 'tiny', 'delicate', 'fine']
+    },
+    colors: {
+      blue: ['blue', 'navy', 'cobalt', 'azure', 'sapphire', 'turquoise', 'aqua', 'teal', 'cerulean'],
+      red: ['red', 'crimson', 'ruby', 'burgundy', 'scarlet', 'maroon', 'cherry'],
+      green: ['green', 'emerald', 'jade', 'olive', 'forest', 'lime', 'mint'],
+      yellow: ['yellow', 'gold', 'amber', 'citrine', 'golden', 'lemon'],
+      purple: ['purple', 'violet', 'amethyst', 'lavender', 'lilac', 'plum'],
+      clear: ['clear', 'transparent', 'crystal', 'see-through', 'colorless'],
+      black: ['black', 'ebony', 'onyx', 'dark', 'jet'],
+      white: ['white', 'pearl', 'ivory', 'cream', 'pale', 'snow'],
+      pink: ['pink', 'rose', 'magenta', 'blush', 'salmon'],
+      orange: ['orange', 'coral', 'peach', 'tangerine', 'apricot'],
+      brown: ['brown', 'tan', 'beige', 'coffee', 'chocolate', 'earth', 'natural', 'umber'],
+      colorful: ['colorful', 'multicolored', 'various colors', 'different colors', 'mixed colors', 'rainbow', 'varied']
+    },
+    shapes: {
+      round: ['round', 'sphere', 'ball', 'circular', 'spherical', 'globular'],
+      oval: ['oval', 'elliptical', 'egg', 'elongated', 'oblong'],
+      cylinder: ['cylinder', 'tube', 'barrel', 'cylindrical', 'tubular'],
+      faceted: ['faceted', 'cut', 'geometric', 'angular', 'crystalline', 'multi-sided'],
+      irregular: ['irregular', 'organic', 'freeform', 'natural shape', 'random'],
+      flat: ['flat', 'disc', 'coin', 'button', 'tablet'],
+      heart: ['heart', 'heart-shaped', 'heart shaped'],
+      star: ['star', 'star-shaped', 'star shaped'],
+      square: ['square', 'cube', 'cubic', 'rectangular'],
+      small: ['small', 'tiny', 'little', 'mini', 'miniature'],
+      large: ['large', 'big', 'chunky', 'oversized', 'substantial']
+    },
+    finishes: {
+      glossy: ['glossy', 'shiny', 'polished', 'lustrous', 'reflective'],
+      matte: ['matte', 'dull', 'frosted', 'non-reflective'],
+      textured: ['textured', 'rough', 'bumpy', 'ridged', 'etched']
+    }
+  };
+
+  const analysis = {
+    materials: [] as Array<{type: string, confidence: number, matched_words: string[]}>,
+    colors: [] as Array<{type: string, confidence: number, matched_words: string[]}>,
+    shapes: [] as Array<{type: string, confidence: number, matched_words: string[]}>,
+    finishes: [] as Array<{type: string, confidence: number, matched_words: string[]}>
+  };
+
+  const lowercaseDesc = description.toLowerCase();
+  
+  // Smart glass detection - if we see specific phrases about glass with metallic effects
+  const glassWithMetallicPhrases = [
+    'metallic effect within the glass',
+    'silver leafing',
+    'gold leafing', 
+    'venetian glass',
+    'murano',
+    'incorporated into the glass',
+    'effect incorporated',
+    'metallic inclusions',
+    'leafing or a similar effect',
+    'glass heart beads'
+  ];
+  
+  let hasGlassWithMetallic = false;
+  for (const phrase of glassWithMetallicPhrases) {
+    if (lowercaseDesc.includes(phrase)) {
+      hasGlassWithMetallic = true;
+      break;
+    }
+  }
+  
+  for (const [category, items] of Object.entries(beadKeywords)) {
+    for (const [item, words] of Object.entries(items)) {
+      const matches = words.filter(word => lowercaseDesc.includes(word));
+      if (matches.length > 0) {
+        let confidence = Math.min(matches.length / words.length * 1.2, 1.0);
+        
+        // Special logic for materials
+        if (category === 'materials') {
+          if (item === 'glass' && hasGlassWithMetallic) {
+            // Boost glass confidence if we detected glass with metallic effects
+            confidence = Math.min(confidence + 0.3, 0.95);
+          } else if (item === 'metal' && hasGlassWithMetallic) {
+            // Reduce metal confidence if this is actually glass with metallic effects
+            confidence = Math.max(confidence - 0.4, 0.1);
+          }
+        }
+        
+        (analysis as any)[category].push({
+          type: item,
+          confidence: confidence,
+          matched_words: matches
+        });
+      }
+    }
+  }
+
+  // Sort by confidence
+  Object.keys(analysis).forEach(key => {
+    (analysis as any)[key].sort((a: any, b: any) => b.confidence - a.confidence);
+  });
+
+  return analysis;
+}
+
+function findMatchingBeads(analysis: any, description: string, isFallback: boolean = false) {
   const suggestions = [];
   
   // Get top characteristics
@@ -8,7 +392,6 @@ function findMatchingBeads(analysis: any, isFallback: boolean = false) {
   const topFinish = analysis.finishes[0];
   
   // Extract specific bead types from the AI description
-  const description = analysis.description || '';
   const lowerDesc = description.toLowerCase();
   
   // Specific bead type detection from AI analysis
