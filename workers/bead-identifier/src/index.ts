@@ -3,11 +3,25 @@ interface Env {
   BEAD_DATA: KVNamespace;
 }
 
+// Helper function to safely convert ArrayBuffer to base64
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunkSize = 8192; // Process in chunks to avoid stack overflow
+  
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.slice(i, i + chunkSize);
+    binary += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+  
+  return btoa(binary);
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     // Handle CORS
     const corsHeaders = {
-      'Access-Control-Allow-Origin': 'https://beadfanatic.co.uk',
+      'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
     };
@@ -24,6 +38,8 @@ export default {
     }
 
     try {
+      console.log('🔮 Starting bead identification process...');
+      
       const formData = await request.formData();
       const imageFile = formData.get('image') as File;
       
@@ -50,20 +66,38 @@ export default {
         });
       }
 
-      // Convert to base64 for AI processing
-      const imageBuffer = await imageFile.arrayBuffer();
-      const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
-
-      // DEBUG: Log image info
-      console.log('Processing image:', {
+      console.log('📸 Processing image:', {
         name: imageFile.name,
         size: imageFile.size,
-        type: imageFile.type,
-        base64_length: base64Image.length,
-        base64_preview: base64Image.substring(0, 50) + '...'
+        type: imageFile.type
       });
 
+      // Convert to base64 using safe method
+      const imageBuffer = await imageFile.arrayBuffer();
+      const base64Image = arrayBufferToBase64(imageBuffer);
+
+      console.log('🔄 Converted to base64, length:', base64Image.length);
+
+      // Check if we have HF_API_TOKEN
+      if (!env.HF_API_TOKEN) {
+        console.error('❌ Missing HF_API_TOKEN');
+        return new Response(JSON.stringify({
+          error: 'Service configuration error. Please contact support.',
+          debug: { 
+            error_message: 'Missing API token',
+            timestamp: new Date().toISOString()
+          }
+        }), { 
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders
+          }
+        });
+      }
+
       // Use Hugging Face Inference API for image description
+      console.log('🤖 Calling Hugging Face API...');
       const aiResponse = await fetch(
         'https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-large',
         {
@@ -82,47 +116,49 @@ export default {
         }
       );
 
-      // DEBUG: Log API response details
-      console.log('AI API Response:', {
-        status: aiResponse.status,
-        ok: aiResponse.ok,
-        headers: Object.fromEntries(aiResponse.headers.entries())
-      });
+      console.log('📡 AI API Response status:', aiResponse.status, aiResponse.ok);
 
       if (!aiResponse.ok) {
         const errorText = await aiResponse.text();
-        console.error('AI API Error:', errorText);
+        console.error('❌ AI API Error:', errorText);
+        
+        // Handle common API errors
+        if (aiResponse.status === 503) {
+          return new Response(JSON.stringify({
+            error: 'AI service is temporarily loading. Please try again in a moment.',
+            debug: { 
+              error_message: 'Model loading',
+              status: aiResponse.status,
+              timestamp: new Date().toISOString()
+            }
+          }), { 
+            status: 503,
+            headers: {
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          });
+        }
+        
         throw new Error(`AI service error: ${aiResponse.status} - ${errorText}`);
       }
 
       const result = await aiResponse.json();
-      
-      // DEBUG: Log the actual AI result
-      console.log('AI Result:', JSON.stringify(result, null, 2));
+      console.log('✅ AI Result received');
       
       const description = result[0]?.generated_text || 'Unable to generate description';
+      console.log('📝 Final description:', description);
 
-      // DEBUG: Log final description
-      console.log('Final description:', description);
-
-      // Enhanced analysis with keyword matching
-      const analysis = analyzeDescription(description);
-      
-      // Find matching beads based on analysis
-      const suggestions = await findMatchingBeads(analysis);
-
-      // Add debug info to response
+      // Simple response for now to test basic functionality
       const response = {
         description,
-        analysis,
-        suggestions,
+        status: 'success',
         debug: {
           image_info: {
             size: imageFile.size,
             type: imageFile.type,
             name: imageFile.name
           },
-          ai_raw_result: result,
           timestamp: new Date().toISOString()
         }
       };
@@ -135,7 +171,7 @@ export default {
       });
 
     } catch (error) {
-      console.error('Error identifying bead:', error);
+      console.error('💥 Error identifying bead:', error);
       return new Response(JSON.stringify({ 
         error: 'Failed to identify bead. Please try again.',
         debug: {
@@ -152,184 +188,3 @@ export default {
     }
   }
 };
-
-function analyzeDescription(description: string) {
-  const beadKeywords = {
-    materials: {
-      glass: ['glass', 'crystal', 'transparent', 'clear', 'shiny', 'smooth'],
-      metal: ['metal', 'silver', 'gold', 'copper', 'bronze', 'brass', 'metallic'],
-      stone: ['stone', 'marble', 'granite', 'quartz', 'agate', 'natural', 'jasper', 'rock', 'mineral'],
-      wood: ['wood', 'wooden', 'natural', 'brown', 'grain'],
-      ceramic: ['ceramic', 'porcelain', 'clay', 'glazed'],
-      plastic: ['plastic', 'acrylic', 'synthetic'],
-      foil: ['foil', 'leaf', 'silver foil', 'gold foil', 'metallic foil', 'shimmer', 'reflective']
-    },
-    types: {
-      venetian: ['venetian', 'murano', 'italy', 'italian', 'gold leaf', 'aventurine'],
-      seed: ['seed', 'small', 'tiny', 'round', 'uniform'],
-      czech: ['czech', 'bohemian', 'fire polished'],
-      pearl: ['pearl', 'lustrous', 'round', 'white', 'cream', 'nacre'],
-      lampwork: ['lampwork', 'handmade', 'artisan', 'swirl', 'pattern', 'foil', 'silver foil', 'gold foil'],
-      millefiori: ['millefiori', 'thousand flowers', 'cane', 'mosaic'],
-      dichroic: ['dichroic', 'color changing', 'iridescent', 'rainbow'],
-      gemstone: ['gemstone', 'semi-precious', 'jasper', 'agate', 'quartz', 'natural stone']
-    },
-    shapes: {
-      round: ['round', 'sphere', 'ball', 'circular'],
-      oval: ['oval', 'elliptical', 'egg'],
-      cylinder: ['cylinder', 'tube', 'barrel'],
-      disc: ['disc', 'flat', 'coin'],
-      irregular: ['irregular', 'organic', 'freeform'],
-      heart: ['heart', 'heart-shaped', 'love'],
-      drop: ['drop', 'teardrop', 'pear'],
-      bicone: ['bicone', 'diamond', 'faceted']
-    },
-    colors: {
-      blue: ['blue', 'navy', 'cobalt', 'azure', 'sapphire', 'turquoise', 'aqua'],
-      red: ['red', 'crimson', 'ruby', 'burgundy'],
-      green: ['green', 'emerald', 'jade', 'olive'],
-      yellow: ['yellow', 'gold', 'amber', 'citrine'],
-      purple: ['purple', 'violet', 'amethyst', 'lavender'],
-      clear: ['clear', 'transparent', 'crystal'],
-      black: ['black', 'ebony', 'onyx'],
-      white: ['white', 'pearl', 'ivory', 'cream'],
-      pink: ['pink', 'rose', 'magenta'],
-      orange: ['orange', 'coral', 'peach'],
-      brown: ['brown', 'tan', 'beige', 'coffee', 'chocolate', 'earth', 'natural']
-    },
-    finishes: {
-      matte: ['matte', 'frosted', 'dull'],
-      glossy: ['glossy', 'shiny', 'polished', 'smooth'],
-      faceted: ['faceted', 'cut', 'geometric', 'angular'],
-      textured: ['textured', 'rough', 'bumpy', 'ridged']
-    }
-  };
-
-  const analysis = {
-    materials: [] as Array<{type: string, confidence: number, matched_words: string[]}>,
-    types: [] as Array<{type: string, confidence: number, matched_words: string[]}>,
-    shapes: [] as Array<{type: string, confidence: number, matched_words: string[]}>,
-    colors: [] as Array<{type: string, confidence: number, matched_words: string[]}>,
-    finishes: [] as Array<{type: string, confidence: number, matched_words: string[]}>
-  };
-
-  const lowercaseDesc = description.toLowerCase();
-  
-  for (const [category, items] of Object.entries(beadKeywords)) {
-    for (const [item, words] of Object.entries(items)) {
-      const matches = words.filter(word => lowercaseDesc.includes(word));
-      if (matches.length > 0) {
-        (analysis as any)[category].push({
-          type: item,
-          confidence: matches.length / words.length,
-          matched_words: matches
-        });
-      }
-    }
-  }
-
-  // Sort by confidence
-  Object.keys(analysis).forEach(key => {
-    (analysis as any)[key].sort((a: any, b: any) => b.confidence - a.confidence);
-  });
-
-  return analysis;
-}
-
-async function findMatchingBeads(analysis: any) {
-  const suggestions = [];
-  
-  // Check for stone/jasper indicators first
-  const hasStoneIndicators = analysis.materials.some((m: any) => m.type === 'stone') ||
-                            analysis.types.some((t: any) => t.type === 'gemstone') ||
-                            analysis.colors.some((c: any) => c.type === 'brown');
-  
-  if (hasStoneIndicators) {
-    suggestions.push({
-      title: 'Jasper Stone Beads',
-      slug: 'jasper-stone',
-      description: 'Natural jasper stone beads with earthy colors and unique patterns',
-      confidence: 0.92,
-      category: 'stone',
-      tags: ['jasper', 'stone', 'natural', 'gemstone']
-    });
-  }
-
-  // Check for silver/gold foil indicators (lampwork beads)
-  const hasFoilIndicators = analysis.materials.some((m: any) => m.type === 'foil') ||
-                           analysis.types.some((t: any) => t.type === 'lampwork') ||
-                           analysis.materials.some((m: any) => m.matched_words.includes('silver')) ||
-                           analysis.materials.some((m: any) => m.matched_words.includes('gold'));
-  
-  if (hasFoilIndicators) {
-    suggestions.push({
-      title: 'Silver Foil Lampwork Beads',
-      slug: 'silver-foil-lampwork',
-      description: 'Handcrafted glass beads with silver foil encased within, creating beautiful metallic effects',
-      confidence: 0.90,
-      category: 'lampwork',
-      tags: ['lampwork', 'silver foil', 'handmade', 'artisan']
-    });
-  }
-
-  // Check for heart shape indicators
-  const hasHeartShape = analysis.shapes.some((s: any) => s.type === 'heart');
-  
-  if (hasHeartShape) {
-    suggestions.push({
-      title: 'Heart-Shaped Beads',
-      slug: 'heart-beads',
-      description: 'Decorative heart-shaped beads perfect for romantic jewelry projects',
-      confidence: 0.88,
-      category: 'novelty',
-      tags: ['heart', 'romantic', 'decorative']
-    });
-  }
-
-  // Check for Venetian glass indicators
-  const hasVenetianIndicators = analysis.types.some((t: any) => t.type === 'venetian') ||
-                                analysis.materials.some((m: any) => m.type === 'glass');
-  
-  if (hasVenetianIndicators && !hasFoilIndicators && !hasStoneIndicators) {
-    suggestions.push({
-      title: 'Venetian Glass Beads',
-      slug: 'venetian-glass',
-      description: 'Traditional Italian glass beads with distinctive patterns',
-      confidence: 0.85,
-      category: 'glass',
-      tags: ['venetian', 'glass', 'luxury']
-    });
-  }
-  
-  // Check for seed bead indicators
-  const hasSeedIndicators = analysis.types.some((t: any) => t.type === 'seed') ||
-                           analysis.shapes.some((s: any) => s.type === 'round');
-  
-  if (hasSeedIndicators && !hasFoilIndicators && !hasHeartShape && !hasStoneIndicators) {
-    suggestions.push({
-      title: 'Seed Beads',
-      slug: 'seed-beads',
-      description: 'Small, uniform beads perfect for detailed beadwork',
-      confidence: 0.75,
-      category: 'glass',
-      tags: ['seed', 'small', 'beadwork']
-    });
-  }
-
-  // Check for Czech beads
-  const hasCzechIndicators = analysis.types.some((t: any) => t.type === 'czech') ||
-                            analysis.finishes.some((f: any) => f.type === 'faceted');
-  
-  if (hasCzechIndicators) {
-    suggestions.push({
-      title: 'Czech Glass Beads',
-      slug: 'czech-glass',
-      description: 'High-quality Czech glass beads known for their precision and brilliance',
-      confidence: 0.82,
-      category: 'glass',
-      tags: ['czech', 'glass', 'faceted']
-    });
-  }
-  
-  return suggestions.sort((a, b) => b.confidence - a.confidence);
-}
